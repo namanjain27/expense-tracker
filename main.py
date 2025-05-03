@@ -143,4 +143,11 @@ def export_expenses(db: Session = Depends(get_db)):
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         filename="expenses.xlsx",
         background=None
-    ) 
+    )
+
+if __name__ == "__main__":
+    import uvicorn
+    import os
+    
+    port = int(os.getenv("PORT", 10000))
+    uvicorn.run(app, host="0.0.0.0", port=port) 
