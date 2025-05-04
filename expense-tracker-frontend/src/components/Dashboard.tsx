@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Box, Button, Container, Paper, Typography, Tooltip } from '@mui/material';
 import { Doughnut, Line } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip as ChartTooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, Title } from 'chart.js';
-import { Expense, TotalExpenses, CATEGORIES } from '../types/expense';
+import { Expense, TotalExpenses} from '../types/expense';
 import { api } from '../services/api';
 import AddExpenseDialog from './AddExpenseDialog';
 import DeleteExpenseDialog from './DeleteExpenseDialog';

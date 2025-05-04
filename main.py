@@ -19,10 +19,10 @@ models.Base.metadata.create_all(bind=engine)
 app = FastAPI()
 
 origins = [
-    "http://localhost",
     "http://localhost:5173",
     "https://your-website-domain.com",
-    "http://127.0.0.1:8000"
+    "https://expense-tracker-frontend-nfhv.onrender.com",
+    "http://localhost:8000"
 ]
 
 app.add_middleware(
@@ -145,10 +145,3 @@ def export_expenses(db: Session = Depends(get_db)):
         filename="expenses.xlsx",
         background=None
     )
-
-if __name__ == "__main__":
-    import uvicorn
-    import os
-    
-    port = int(os.getenv("PORT", 10000))
-    uvicorn.run(app, host="0.0.0.0", port=port) 
