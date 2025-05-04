@@ -22,7 +22,8 @@ origins = [
     "http://localhost:5173",
     "https://your-website-domain.com",
     "https://expense-tracker-frontend-nfhv.onrender.com",
-    "http://localhost:8000"
+    "http://localhost:8000",
+    "http://localhost:10000"
 ]
 
 app.add_middleware(
