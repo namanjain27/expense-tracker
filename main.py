@@ -3,15 +3,17 @@ from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func
 from typing import List
-from datetime import date
+from datetime import date, timedelta
+from dateutil.relativedelta import relativedelta
 from database import get_db, engine
 import models
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 from fastapi.responses import FileResponse
 import openpyxl
 from openpyxl import Workbook
 import tempfile
 import os
+from enum import Enum
 
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
@@ -21,8 +23,8 @@ app = FastAPI()
 origins = [
     "http://localhost:5173",
     "https://your-website-domain.com",
-    "https://expense-tracker-frontend-nfhv.onrender.com",
-    "http://localhost:8000"
+    "http://localhost:8000",
+    "https://expense-tracker-frontend-nfhv.onrender.com"
 ]
 
 app.add_middleware(
@@ -63,6 +65,45 @@ class Expense(ExpenseBase):
         super().__init__(**data)
         self.category = CATEGORIES.get(self.category_id, "Unknown")
 
+# Pydantic models for recurring expenses
+class PeriodUnit(str, Enum):
+    DAYS = "days"
+    MONTHS = "months"
+    YEARS = "years"
+
+class PeriodBase(BaseModel):
+    value: int
+    unit: PeriodUnit
+
+    @validator('value')
+    def validate_value(cls, v):
+        if not 1 <= v <= 30:
+            raise ValueError('Value must be between 1 and 30')
+        return v
+
+class RecurringExpenseBase(BaseModel):
+    name: str
+    amount: float
+    category_id: int
+    subscription_period: PeriodBase = PeriodBase(value=1, unit=PeriodUnit.MONTHS)
+    effective_date: date
+    billing_period: PeriodBase = PeriodBase(value=1, unit=PeriodUnit.MONTHS)
+    due_period: PeriodBase
+
+    class Config:
+        orm_mode = True
+
+class RecurringExpenseCreate(RecurringExpenseBase):
+    pass
+
+class RecurringExpense(RecurringExpenseBase):
+    id: int
+    category: str = ""
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        self.category = CATEGORIES.get(self.category_id, "Unknown")
+
 @app.post("/expenses/", response_model=Expense)
 def create_expense(expense: ExpenseCreate, db: Session = Depends(get_db)):
     if expense.category_id not in CATEGORIES:
@@ -73,6 +114,49 @@ def create_expense(expense: ExpenseCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_expense)
     return Expense(**db_expense.__dict__)
+
+@app.post("/recurring-expenses/", response_model=RecurringExpense)
+def create_recurring_expense(expense: RecurringExpenseCreate, db: Session = Depends(get_db)):
+    if expense.category_id not in CATEGORIES:
+        raise HTTPException(status_code=400, detail="Invalid category ID. Must be between 1 and 6")
+    
+    # Convert the period objects to database format
+    db_expense = models.RecurringExpense(
+        name=expense.name,
+        amount=expense.amount,
+        category_id=expense.category_id,
+        subscription_period_value=expense.subscription_period.value,
+        subscription_period_unit=expense.subscription_period.unit,
+        effective_date=expense.effective_date,
+        billing_period_value=expense.billing_period.value,
+        billing_period_unit=expense.billing_period.unit,
+        due_period_value=expense.due_period.value,
+        due_period_unit=expense.due_period.unit
+    )
+    db.add(db_expense)
+    db.commit()
+    db.refresh(db_expense)
+    
+    # Convert back to response format
+    return RecurringExpense(
+        id=db_expense.id,
+        name=db_expense.name,
+        amount=db_expense.amount,
+        category_id=db_expense.category_id,
+        subscription_period=PeriodBase(
+            value=db_expense.subscription_period_value,
+            unit=db_expense.subscription_period_unit
+        ),
+        effective_date=db_expense.effective_date,
+        billing_period=PeriodBase(
+            value=db_expense.billing_period_value,
+            unit=db_expense.billing_period_unit
+        ),
+        due_period=PeriodBase(
+            value=db_expense.due_period_value,
+            unit=db_expense.due_period_unit
+        )
+    )
 
 @app.get("/expenses/", response_model=List[Expense])
 def read_expenses(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
@@ -145,3 +229,127 @@ def export_expenses(db: Session = Depends(get_db)):
         filename="expenses.xlsx",
         background=None
     )
+
+@app.get("/recurring-expenses/", response_model=List[RecurringExpense])
+def get_recurring_expenses(db: Session = Depends(get_db)):
+    today = date.today()
+    
+    # Get all subscriptions where effective_date + subscription_period >= today
+    subscriptions = db.query(models.RecurringExpense).all()
+    active_subscriptions = []
+    
+    for sub in subscriptions:
+        # Calculate end date based on subscription period
+        if sub.subscription_period_unit == "days":
+            end_date = sub.effective_date + timedelta(days=sub.subscription_period_value)
+        elif sub.subscription_period_unit == "months":
+            end_date = sub.effective_date + relativedelta(months=sub.subscription_period_value)
+        else:  # years
+            end_date = sub.effective_date + relativedelta(years=sub.subscription_period_value)
+            
+        if end_date >= today:
+            # Convert database model to Pydantic model with proper period objects
+            subscription_dict = {
+                "id": sub.id,
+                "name": sub.name,
+                "amount": sub.amount,
+                "category_id": sub.category_id,
+                "subscription_period": {
+                    "value": sub.subscription_period_value,
+                    "unit": sub.subscription_period_unit
+                },
+                "effective_date": sub.effective_date,
+                "billing_period": {
+                    "value": sub.billing_period_value,
+                    "unit": sub.billing_period_unit
+                },
+                "due_period": {
+                    "value": sub.due_period_value or 1,  # Default to 1 if None
+                    "unit": sub.due_period_unit or "months"  # Default to months if None
+                }
+            }
+            active_subscriptions.append(subscription_dict)
+    
+    return active_subscriptions
+
+@app.post("/recurring-expenses/{subscription_id}/update-effective-date", response_model=RecurringExpense)
+def update_subscription_effective_date(subscription_id: int, db: Session = Depends(get_db)):
+    subscription = db.query(models.RecurringExpense).filter(models.RecurringExpense.id == subscription_id).first()
+    if not subscription:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+    
+    # Calculate new effective date based on billing period
+    if subscription.billing_period_unit == "days":
+        new_effective_date = subscription.effective_date + timedelta(days=subscription.billing_period_value)
+    elif subscription.billing_period_unit == "months":
+        new_effective_date = subscription.effective_date + relativedelta(months=subscription.billing_period_value)
+    else:  # years
+        new_effective_date = subscription.effective_date + relativedelta(years=subscription.billing_period_value)
+    
+    # Update the effective date
+    subscription.effective_date = new_effective_date
+    db.commit()
+    db.refresh(subscription)
+    
+    # Convert to response format
+    return {
+        "id": subscription.id,
+        "name": subscription.name,
+        "amount": subscription.amount,
+        "category_id": subscription.category_id,
+        "subscription_period": {
+            "value": subscription.subscription_period_value,
+            "unit": subscription.subscription_period_unit
+        },
+        "effective_date": subscription.effective_date,
+        "billing_period": {
+            "value": subscription.billing_period_value,
+            "unit": subscription.billing_period_unit
+        },
+        "due_period": {
+            "value": subscription.due_period_value or 1,
+            "unit": subscription.due_period_unit or "months"
+        }
+    }
+
+@app.put("/recurring-expenses/{subscription_id}", response_model=RecurringExpense)
+def update_recurring_expense(subscription_id: int, expense: RecurringExpenseCreate, db: Session = Depends(get_db)):
+    db_expense = db.query(models.RecurringExpense).filter(models.RecurringExpense.id == subscription_id).first()
+    if not db_expense:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+    
+    # Update the expense fields
+    db_expense.name = expense.name
+    db_expense.amount = expense.amount
+    db_expense.category_id = expense.category_id
+    db_expense.subscription_period_value = expense.subscription_period.value
+    db_expense.subscription_period_unit = expense.subscription_period.unit
+    db_expense.effective_date = expense.effective_date
+    db_expense.billing_period_value = expense.billing_period.value
+    db_expense.billing_period_unit = expense.billing_period.unit
+    db_expense.due_period_value = expense.due_period.value
+    db_expense.due_period_unit = expense.due_period.unit
+    
+    db.commit()
+    db.refresh(db_expense)
+    
+    # Convert to response format
+    return {
+        "id": db_expense.id,
+        "name": db_expense.name,
+        "amount": db_expense.amount,
+        "category_id": db_expense.category_id,
+        "subscription_period": {
+            "value": db_expense.subscription_period_value,
+            "unit": db_expense.subscription_period_unit
+        },
+        "effective_date": db_expense.effective_date,
+        "billing_period": {
+            "value": db_expense.billing_period_value,
+            "unit": db_expense.billing_period_unit
+        },
+        "due_period": {
+            "value": db_expense.due_period_value or 1,
+            "unit": db_expense.due_period_unit or "months"
+        }
+    }

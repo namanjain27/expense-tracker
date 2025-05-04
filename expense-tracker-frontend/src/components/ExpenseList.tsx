@@ -43,7 +43,7 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onSelectExpense, se
                             >
                                 <TableCell>{expense.date}</TableCell>
                                 <TableCell>{expense.category}</TableCell>
-                                <TableCell align="right">${expense.amount.toFixed(2)}</TableCell>
+                                <TableCell align="right">₹{expense.amount.toFixed(2)}</TableCell>
                             </TableRow>
                         ))}
                         {expenses.length === 0 && (
