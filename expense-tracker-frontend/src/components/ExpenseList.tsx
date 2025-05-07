@@ -9,7 +9,8 @@ import {
     Paper,
     Typography,
     IconButton,
-    Tooltip
+    Tooltip,
+    Box
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { Expense } from '../types/expense';
@@ -28,12 +29,33 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
     onDeleteClick 
 }) => {
     return (
-        <>
+        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             <Typography variant="h6" gutterBottom>
                 Recent Expenses
             </Typography>
-            <TableContainer>
-                <Table>
+            <TableContainer 
+                component={Paper} 
+                sx={{ 
+                    flex: 1,
+                    maxHeight: '1125px', // This will show approximately 10 rows
+                    overflow: 'auto',
+                    '&::-webkit-scrollbar': {
+                        width: '8px',
+                    },
+                    '&::-webkit-scrollbar-track': {
+                        background: '#f1f1f1',
+                        borderRadius: '4px',
+                    },
+                    '&::-webkit-scrollbar-thumb': {
+                        background: '#888',
+                        borderRadius: '4px',
+                        '&:hover': {
+                            background: '#555',
+                        },
+                    },
+                }}
+            >
+                <Table stickyHeader>
                     <TableHead>
                         <TableRow>
                             <TableCell>Date</TableCell>
@@ -82,7 +104,7 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
                     </TableBody>
                 </Table>
             </TableContainer>
-        </>
+        </Box>
     );
 };
 

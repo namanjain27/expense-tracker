@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func
-from typing import List, Union
+from typing import List, Union, Dict
 from datetime import date, timedelta, datetime
 from dateutil.relativedelta import relativedelta
 from database import get_db, engine
@@ -39,11 +39,14 @@ app.add_middleware(
 # Category mapping
 CATEGORIES = {
     1: "Food",
-    2: "Rent",
-    3: "Travel",
-    4: "Shopping",
+    2: "Housing",
+    3: "Transportation",
+    4: "Personal",
     5: "Utility",
-    6: "Misc"
+    6: "Recreation",
+    7: "Health",
+    8: "Savings",
+    9: "Debt"
 }
 
 # Pydantic models for request/response
@@ -119,10 +122,39 @@ class DueTomorrowResponse(BaseModel):
 class DueTomorrowListResponse(BaseModel):
     subscriptions: List[RecurringExpense]
 
+# Add this with other Pydantic models
+class BudgetBase(BaseModel):
+    monthly_income: float
+    saving_goal: float
+    category_budgets: Dict[str, float]
+
+    @validator('monthly_income', 'saving_goal')
+    def validate_amounts(cls, v):
+        if v < 0:
+            raise ValueError('Amount cannot be negative')
+        return v
+
+    @validator('category_budgets')
+    def validate_category_budgets(cls, v):
+        for category, amount in v.items():
+            if amount < 0:
+                raise ValueError(f'Budget for {category} cannot be negative')
+        return v
+
+class BudgetCreate(BudgetBase):
+    pass
+
+class Budget(BudgetBase):
+    id: int
+    created_at: datetime
+
+    class Config:
+        orm_mode = True
+
 @app.post("/expenses/", response_model=Expense)
 def create_expense(expense: ExpenseCreate, db: Session = Depends(get_db)):
     if expense.category_id not in CATEGORIES:
-        raise HTTPException(status_code=400, detail="Invalid category ID. Must be between 1 and 6")
+        raise HTTPException(status_code=400, detail="Invalid category ID. Must be between 1 and 9")
     
     db_expense = models.Expense(**expense.dict())
     db.add(db_expense)
@@ -133,7 +165,7 @@ def create_expense(expense: ExpenseCreate, db: Session = Depends(get_db)):
 @app.post("/recurring-expenses/", response_model=RecurringExpense)
 def create_recurring_expense(expense: RecurringExpenseCreate, db: Session = Depends(get_db)):
     if expense.category_id not in CATEGORIES:
-        raise HTTPException(status_code=400, detail="Invalid category ID. Must be between 1 and 6")
+        raise HTTPException(status_code=400, detail="Invalid category ID. Must be between 1 and 9")
     
     # Convert the period objects to database format
     db_expense = models.RecurringExpense(
@@ -181,15 +213,38 @@ def read_expenses(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
     return [Expense(**expense.__dict__) for expense in expenses]
 
 @app.get("/expenses/total")
-def get_total_expenses(db: Session = Depends(get_db)):
-    # Get overall total
-    total = db.query(models.Expense).with_entities(func.sum(models.Expense.amount)).scalar()
-    
-    # Get category-wise totals
-    category_totals = db.query(
-        models.Expense.category_id,
-        func.sum(models.Expense.amount).label('total')
-    ).group_by(models.Expense.category_id).all()
+def get_total_expenses(month: int = None, year: int = None, db: Session = Depends(get_db)):
+    # If month and year are provided, filter expenses for that month
+    if month is not None and year is not None:
+        start_date = date(year, month, 1)
+        if month == 12:
+            end_date = date(year + 1, 1, 1)
+        else:
+            end_date = date(year, month + 1, 1)
+        
+        # Get overall total for the month
+        total = db.query(models.Expense).filter(
+            models.Expense.date >= start_date,
+            models.Expense.date < end_date
+        ).with_entities(func.sum(models.Expense.amount)).scalar()
+        
+        # Get category-wise totals for the month
+        category_totals = db.query(
+            models.Expense.category_id,
+            func.sum(models.Expense.amount).label('total')
+        ).filter(
+            models.Expense.date >= start_date,
+            models.Expense.date < end_date
+        ).group_by(models.Expense.category_id).all()
+    else:
+        # Get overall total
+        total = db.query(models.Expense).with_entities(func.sum(models.Expense.amount)).scalar()
+        
+        # Get category-wise totals
+        category_totals = db.query(
+            models.Expense.category_id,
+            func.sum(models.Expense.amount).label('total')
+        ).group_by(models.Expense.category_id).all()
     
     # Convert category IDs to names and format the response
     category_breakdown = {
@@ -468,4 +523,171 @@ def get_intention_breakdown(month: int, year: int, db: Session = Depends(get_db)
         "totals": intention_totals,
         "percentages": intention_percentages,
         "total_amount": total
+    }
+
+@app.post("/budget/", response_model=Budget)
+def create_budget(budget: BudgetCreate, db: Session = Depends(get_db)):
+    # Convert category names to IDs
+    category_budgets = {}
+    for category_name, amount in budget.category_budgets.items():
+        category_id = next((k for k, v in CATEGORIES.items() if v == category_name), None)
+        if category_id is None:
+            raise HTTPException(status_code=400, detail=f"Invalid category: {category_name}")
+        category_budgets[category_id] = amount
+
+    db_budget = models.Budget(
+        monthly_income=budget.monthly_income,
+        saving_goal=budget.saving_goal,
+        category_budgets=category_budgets,
+        created_at=datetime.now()
+    )
+    db.add(db_budget)
+    db.commit()
+    db.refresh(db_budget)
+    
+    # Convert category IDs back to names for response
+    response_budgets = {}
+    for cat_id, amount in db_budget.category_budgets.items():
+        response_budgets[CATEGORIES[int(cat_id)]] = amount
+
+    
+    return Budget(
+        id=db_budget.id,
+        monthly_income=db_budget.monthly_income,
+        saving_goal=db_budget.saving_goal,
+        category_budgets=response_budgets,
+        created_at=db_budget.created_at
+    )
+
+@app.get("/budget/latest", response_model=Budget)
+def get_latest_budget(month: int = None, year: int = None, db: Session = Depends(get_db)):
+    query = db.query(models.Budget)
+    
+    if month is not None and year is not None:
+        # Filter budgets for the specified month and year
+        start_date = datetime(year, month, 1)
+        if month == 12:
+            end_date = datetime(year + 1, 1, 1)
+        else:
+            end_date = datetime(year, month + 1, 1)
+        query = query.filter(
+            models.Budget.created_at >= start_date,
+            models.Budget.created_at < end_date
+        )
+    
+    budget = query.order_by(models.Budget.created_at.desc()).first()
+    if not budget:
+        raise HTTPException(status_code=404, detail="No budget found")
+    
+    # Convert category IDs to names
+    response_budgets = {}
+    for cat_id, amount in budget.category_budgets.items():
+        response_budgets[CATEGORIES[int(cat_id)]] = amount
+    
+    return Budget(
+        id=budget.id,
+        monthly_income=budget.monthly_income,
+        saving_goal=budget.saving_goal,
+        category_budgets=response_budgets,
+        created_at=budget.created_at
+    )
+
+@app.put("/budget/latest", response_model=Budget)
+def update_latest_budget(budget: BudgetCreate, month: int = None, year: int = None, db: Session = Depends(get_db)):
+    query = db.query(models.Budget)
+    
+    if month is not None and year is not None:
+        # Filter budgets for the specified month and year
+        start_date = datetime(year, month, 1)
+        if month == 12:
+            end_date = datetime(year + 1, 1, 1)
+        else:
+            end_date = datetime(year, month + 1, 1)
+        query = query.filter(
+            models.Budget.created_at >= start_date,
+            models.Budget.created_at < end_date
+        )
+    
+    latest_budget = query.order_by(models.Budget.created_at.desc()).first()
+    
+    if not latest_budget:
+        # If no budget exists for the specified month/year, create a new one
+        category_budgets = {}
+        for category_name, amount in budget.category_budgets.items():
+            category_id = next((k for k, v in CATEGORIES.items() if v == category_name), None)
+            if category_id is None:
+                raise HTTPException(status_code=400, detail=f"Invalid category: {category_name}")
+            category_budgets[int(category_id)] = amount
+
+        new_budget = models.Budget(
+            monthly_income=budget.monthly_income,
+            saving_goal=budget.saving_goal,
+            category_budgets=category_budgets,
+            created_at=datetime.now()
+        )
+        db.add(new_budget)
+        db.commit()
+        db.refresh(new_budget)
+        latest_budget = new_budget
+    else:
+        # Update existing budget
+        category_budgets = {}
+        for category_name, amount in budget.category_budgets.items():
+            category_id = next((k for k, v in CATEGORIES.items() if v == category_name), None)
+            if category_id is None:
+                raise HTTPException(status_code=400, detail=f"Invalid category: {category_name}")
+            category_budgets[int(category_id)] = amount
+
+        latest_budget.monthly_income = budget.monthly_income
+        latest_budget.saving_goal = budget.saving_goal
+        latest_budget.category_budgets = category_budgets
+        latest_budget.created_at = datetime.now()
+
+        db.commit()
+        db.refresh(latest_budget)
+    
+    # Convert category IDs back to names for response
+    response_budgets = {}
+    for cat_id, amount in latest_budget.category_budgets.items():
+        response_budgets[CATEGORIES[int(cat_id)]] = amount
+    
+    return Budget(
+        id=latest_budget.id,
+        monthly_income=latest_budget.monthly_income,
+        saving_goal=latest_budget.saving_goal,
+        category_budgets=response_budgets,
+        created_at=latest_budget.created_at
+    )
+
+@app.get("/expenses/daily")
+def get_daily_expenses(month: int, year: int, db: Session = Depends(get_db)):
+    # Calculate start and end dates for the month
+    start_date = date(year, month, 1)
+    if month == 12:
+        end_date = date(year + 1, 1, 1)
+    else:
+        end_date = date(year, month + 1, 1)
+    
+    # Query expenses for the month and group by date
+    daily_expenses = db.query(
+        models.Expense.date,
+        func.sum(models.Expense.amount).label('total')
+    ).filter(
+        models.Expense.date >= start_date,
+        models.Expense.date < end_date
+    ).group_by(
+        models.Expense.date
+    ).order_by(
+        models.Expense.date
+    ).all()
+    
+    # Format the response
+    return {
+        "daily_expenses": [
+            {
+                "date": expense.date.strftime("%Y-%m-%d"),
+                "amount": float(expense.total)
+            }
+            for expense in daily_expenses
+        ]
     }

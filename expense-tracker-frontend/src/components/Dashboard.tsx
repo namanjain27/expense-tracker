@@ -1,13 +1,16 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Box, Button, Container, Paper, Typography, Tooltip, Grid, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { Box, Button, Container, Paper, Typography, Tooltip, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import { Doughnut, Line, Pie } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip as ChartTooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, Title } from 'chart.js';
-import { Expense, TotalExpenses} from '../types/expense';
-import { api } from '../services/api';
+import { Expense, TotalExpenses } from '../types/expense';
+import { api, DailyExpense } from '../services/api';
 import AddExpenseDialog from './AddExpenseDialog';
 import DeleteExpenseDialog from './DeleteExpenseDialog';
 import ExpenseList from './ExpenseList';
 import SubscriptionsPanel, { SubscriptionsPanelRef } from './SubscriptionsPanel';
+import BudgetDialog from './BudgetDialog';
+import BudgetComparison from './BudgetComparison';
+import { cyan } from '@mui/material/colors';
 
 ChartJS.register(ArcElement, ChartTooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, Title);
 
@@ -25,12 +28,23 @@ const Dashboard: React.FC = () => {
         percentages: { [key: string]: number },
         total_amount: number
     } | null>(null);
+    const [openBudgetDialog, setOpenBudgetDialog] = useState(false);
+    const [currentMonth] = useState(() => {
+        const months = [
+            'January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'
+        ];
+        return months[new Date().getMonth()];
+    });
+    const [dailyExpenses, setDailyExpenses] = useState<DailyExpense[]>([]);
+    const [lineGraphLoading, setLineGraphLoading] = useState(false);
+    const [lineGraphError, setLineGraphError] = useState<string>('');
 
     const fetchData = async () => {
         try {
             const [expensesData, totalsData] = await Promise.all([
                 api.getExpenses(),
-                api.getTotalExpenses()
+                api.getTotalExpenses(selectedMonth, selectedYear)
             ]);
             const sortedExpenses = expensesData.sort((a, b) => 
                 new Date(b.date).getTime() - new Date(a.date).getTime()
@@ -44,7 +58,7 @@ const Dashboard: React.FC = () => {
 
     useEffect(() => {
         fetchData();
-    }, []);
+    }, [selectedMonth, selectedYear]);
 
     useEffect(() => {
         const fetchIntentionData = async () => {
@@ -56,6 +70,24 @@ const Dashboard: React.FC = () => {
             }
         };
         fetchIntentionData();
+    }, [selectedMonth, selectedYear]);
+
+    useEffect(() => {
+        const fetchDailyExpenses = async () => {
+            try {
+                setLineGraphLoading(true);
+                setLineGraphError('');
+                const response = await api.getDailyExpenses(selectedMonth, selectedYear);
+                setDailyExpenses(response.daily_expenses);
+            } catch (error) {
+                console.error('Error fetching daily expenses:', error);
+                setLineGraphError('Failed to load daily expenses data');
+            } finally {
+                setLineGraphLoading(false);
+            }
+        };
+
+        fetchDailyExpenses();
     }, [selectedMonth, selectedYear]);
 
     const handleAddExpense = async (expense: Omit<Expense, 'id' | 'category'>) => {
@@ -90,12 +122,15 @@ const Dashboard: React.FC = () => {
         datasets: [{
             data: totals ? Object.values(totals.category_breakdown) : [],
             backgroundColor: [
-                '#FF6384',
-                '#36A2EB',
-                '#FFCE56',
-                '#4BC0C0',
-                '#9966FF',
-                '#FF9F40'
+                '#9ACD32',  // Food - Pink
+                '#36A2EB',  // Housing - Blue
+                '#FFCE56',  // Transportation - Yellow
+                '#4BC0C0',  // Personal - Teal
+                '#9966FF',  // Utility - Purple
+                '#FF9F40',  // Recreation - Orange
+                '#FF6384',  // Health - Pink
+                '#4CAF50',  // Savings - Green
+                '#FF5252'   // Debt - Red
             ]
         }]
     };
@@ -109,59 +144,17 @@ const Dashboard: React.FC = () => {
                     label: (context: any) => {
                         const label = context.label || '';
                         const value = context.raw || 0;
-                        return `${label}: ₹${value.toFixed(2)}`;
+                        const total = totals?.overall_total || 0;
+                        const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                        return `${label}: ₹${value.toFixed(2)} (${percentage}%)`;
                     }
                 }
-            }
-        }
-    };
-
-    // Prepare data for line chart
-    const aggregatedExpenses = expenses.reduce((acc, expense) => {
-        const date = expense.date;
-        if (!acc[date]) {
-            acc[date] = 0;
-        }
-        acc[date] += expense.amount;
-        return acc;
-    }, {} as { [key: string]: number });
-
-    const sortedDates = Object.keys(aggregatedExpenses).sort((a, b) => 
-        new Date(a).getTime() - new Date(b).getTime()
-    );
-
-    const lineChartData = {
-        labels: sortedDates,
-        datasets: [{
-            label: 'Daily Expenses',
-            data: sortedDates.map(date => aggregatedExpenses[date]),
-            fill: false,
-            borderColor: 'rgb(75, 192, 192)',
-            tension: 0.1
-        }]
-    };
-
-    const lineChartOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            title: {
-                display: true,
-                text: 'Daily Expense Variation'
-            }
-        },
-        scales: {
-            y: {
-                beginAtZero: true,
-                title: {
-                    display: true,
-                    text: 'Amount (₹)'
-                }
             },
-            x: {
-                title: {
-                    display: true,
-                    text: 'Date'
+            legend: {
+                position: 'top' as const,
+                labels: {
+                    boxWidth: 15,
+                    padding: 15
                 }
             }
         }
@@ -215,82 +208,181 @@ const Dashboard: React.FC = () => {
         (_, i) => new Date().getFullYear() - i
     );
 
+    const lineChartData = {
+        labels: dailyExpenses.map(expense => {
+            const date = new Date(expense.date);
+            return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+        }),
+        datasets: [{
+            label: 'Daily Expenses',
+            data: dailyExpenses.map(expense => expense.amount),
+            fill: false,
+            borderColor: 'rgb(75, 192, 192)',
+            tension: 0.1
+        }]
+    };
+
+    const lineChartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            title: {
+                display: true,
+                text: 'Daily Expense Variation'
+            },
+            tooltip: {
+                callbacks: {
+                    label: (context: any) => {
+                        const value = context.raw || 0;
+                        return `Amount: ₹${value.toFixed(2)}`;
+                    }
+                }
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                title: {
+                    display: true,
+                    text: 'Amount (₹)'
+                },
+                ticks: {
+                    callback: (value: any) => `₹${value}`
+                }
+            },
+            x: {
+                title: {
+                    display: true,
+                    text: 'Date'
+                },
+                ticks: {
+                    maxRotation: 45,
+                    minRotation: 45
+                }
+            }
+        }
+    };
+
     return (
         <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-            <Typography variant="h4" gutterBottom>
-                Dashboard
-            </Typography>
+            <Box sx={{ display: 'flex', mb: 3, gap: 3 }}>
+                <Typography variant="h4">
+                    Dashboard
+                </Typography>
+                <FormControl sx={{ minWidth: 120 }}>
+                        <InputLabel>Month</InputLabel>
+                        <Select
+                            value={selectedMonth}
+                            label="Month"
+                            onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                        >
+                            {months.map((month, index) => (
+                                <MenuItem key={month} value={index + 1}>
+                                    {month}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                    <FormControl sx={{ minWidth: 120 }}>
+                        <InputLabel>Year</InputLabel>
+                        <Select
+                            value={selectedYear}
+                            label="Year"
+                            onChange={(e) => setSelectedYear(Number(e.target.value))}
+                        >
+                            {years.map((year) => (
+                                <MenuItem key={year} value={year}>
+                                    {year}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                    <Button
+                        variant="contained"
+                        color="primary"
+                        onClick={() => setOpenBudgetDialog(true)}
+                    >
+                        {months[selectedMonth - 1]} - Budget
+                    </Button>
+            </Box>
             <Box sx={{ display: 'flex', gap: 3, flexDirection: 'column' }}>
                 <Box sx={{ display: 'flex', gap: 3 }}>
                     <Box sx={{ flex: 1.5, display: 'flex', flexDirection: 'column', gap: 3 }}>
                         <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '400px' }}>
-                            <Box sx={{ display: 'flex', height: '100%' }}>
-                                <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                    <Doughnut 
-                                        data={chartData}
-                                        options={chartOptions}
+                            <Box sx={{ mb: 2 }}>
+                                <Typography variant="h6">Monthly Expenses</Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', height: 'calc(100% - 60px)' }}>
+                                <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', maxHeight: '100%' }}>
+                                    <Box sx={{ width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                        <Doughnut 
+                                            data={chartData}
+                                            options={{
+                                                ...chartOptions,
+                                                maintainAspectRatio: false
+                                            }}
+                                        />
+                                    </Box>
+                                </Box>
+                                <Box sx={{ flex: 1, p: 2, overflowY: 'auto' }}>
+                                    <Typography variant="h5">Total: ₹{totals?.overall_total.toFixed(2) || '0.00'}</Typography>
+                                    {totals && Object.entries(totals.category_breakdown)
+                                        .sort((a, b) => b[1] - a[1])
+                                        .map(([category, amount]) => (
+                                            <Box key={category} sx={{ mt: 1 }}>
+                                                <Typography>
+                                                    {category}: ₹{amount.toFixed(2)}
+                                                </Typography>
+                                            </Box>
+                                        ))}
+                                </Box>
+                            </Box>
+                        </Paper>
+                        
+                        <BudgetComparison 
+                            selectedMonth={selectedMonth}
+                            selectedYear={selectedYear}
+                        />
+                        
+                        <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '400px' }}>
+                            <Box sx={{ mb: 2 }}>
+                                <Typography variant="h6" sx={{ ml: 2 }}>
+                                    Expense Intention Breakdown
+                                </Typography>
+                            </Box>
+                            <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                <Box sx={{ width: '60%', height: '100%' }}>
+                                    <Pie 
+                                        data={intentionChartData}
+                                        options={intentionChartOptions}
                                     />
                                 </Box>
-                                <Box sx={{ flex: 1, p: 2 }}>
-                                    <Typography variant="h6">Total Expenses</Typography>
-                                    <Typography variant="h4">₹{totals?.overall_total.toFixed(2) || '0.00'}</Typography>
-                                    {totals && Object.entries(totals.category_breakdown).map(([category, amount]) => (
-                                        <Box key={category} sx={{ mt: 1 }}>
-                                            <Typography>{category}: ₹{amount.toFixed(2)}</Typography>
-                                        </Box>
-                                    ))}
+                            </Box>
+                        </Paper>
+                        <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '400px' }}>
+                            <Box sx={{ mb: 2 }}>
+                                <Typography variant="h6">Daily Expense Variation</Typography>
+                            </Box>
+                            {lineGraphLoading ? (
+                                <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Typography>Loading daily expenses...</Typography>
                                 </Box>
-                            </Box>
+                            ) : lineGraphError ? (
+                                <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Typography color="error">{lineGraphError}</Typography>
+                                </Box>
+                            ) : dailyExpenses.length === 0 ? (
+                                <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Typography color="text.secondary">
+                                        No expenses recorded for {months[selectedMonth - 1]} {selectedYear}
+                                    </Typography>
+                                </Box>
+                            ) : (
+                                <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Line data={lineChartData} options={lineChartOptions} />
+                                </Box>
+                            )}
                         </Paper>
-                        <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '400px' }}>
-                            <Line 
-                                data={lineChartData}
-                                options={lineChartOptions}
-                            />
-                        </Paper>
-                        <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '400px' }}>
-                        <Box sx={{ mb: 2, display: 'flex', gap: 2, alignItems: 'center' }}>
-                            <Typography variant="h6" sx={{ ml: 2 }}>
-                                Expense Intention Breakdown
-                            </Typography>
-                            <FormControl sx={{ minWidth: 120 }}>
-                                <InputLabel>Month</InputLabel>
-                                <Select
-                                    value={selectedMonth}
-                                    label="Month"
-                                    onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                                >
-                                    {months.map((month, index) => (
-                                        <MenuItem key={month} value={index + 1}>
-                                            {month}
-                                        </MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                            <FormControl sx={{ minWidth: 120 }}>
-                                <InputLabel>Year</InputLabel>
-                                <Select
-                                    value={selectedYear}
-                                    label="Year"
-                                    onChange={(e) => setSelectedYear(Number(e.target.value))}
-                                >
-                                    {years.map((year) => (
-                                        <MenuItem key={year} value={year}>
-                                            {year}
-                                        </MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                        </Box>
-                        <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                            <Box sx={{ width: '60%', height: '100%' }}>
-                                <Pie 
-                                    data={intentionChartData}
-                                    options={intentionChartOptions}
-                                />
-                            </Box>
-                        </Box>
-                    </Paper>
                     </Box>
                     <Box sx={{ flex: 1.2 }}>
                         <Paper sx={{ p: 2, height: '100%' }}>
@@ -321,8 +413,6 @@ const Dashboard: React.FC = () => {
                     </Box>
                 </Box>
                 
-                
-                
                 <Box sx={{ width: '100%' }}>
                     <SubscriptionsPanel ref={subscriptionsPanelRef} />
                 </Box>
@@ -342,12 +432,17 @@ const Dashboard: React.FC = () => {
                 expense={selectedExpense}
             />
 
+            <BudgetDialog
+                open={openBudgetDialog}
+                onClose={() => setOpenBudgetDialog(false)}
+                onSuccess={fetchData}
+                selectedMonth={selectedMonth}
+                selectedYear={selectedYear}
+            />
+
             <Box
                 sx={{
-                    position: 'fixed',
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
+                    mt: 4,
                     bgcolor: '#D9D9D9',
                     color: 'black',
                     py: 1,

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Date, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, Date, ForeignKey, JSON, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from database import Base
 
@@ -27,4 +27,13 @@ class RecurringExpense(Base):
     billing_period_unit = Column(String, nullable=False, default="months")  # days, months, years
     due_period_value = Column(Integer, nullable=True)
     due_period_unit = Column(String, nullable=True)  # days, months, years
-    intention = Column(String, default="Need") 
+    intention = Column(String, default="Need")
+
+class Budget(Base):
+    __tablename__ = "budgets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    monthly_income = Column(Float)
+    saving_goal = Column(Float)
+    category_budgets = Column(JSON)  # Stores category_id: amount mapping
+    created_at = Column(DateTime) 
