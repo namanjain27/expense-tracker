@@ -2,13 +2,13 @@ from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func
-from typing import List
-from datetime import date, timedelta
+from typing import List, Union
+from datetime import date, timedelta, datetime
 from dateutil.relativedelta import relativedelta
 from database import get_db, engine
 import models
 from pydantic import BaseModel, validator
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 import openpyxl
 from openpyxl import Workbook
 import tempfile
@@ -47,10 +47,16 @@ CATEGORIES = {
 }
 
 # Pydantic models for request/response
+class IntentionType(str, Enum):
+    NEED = "Need"
+    WANT = "Want"
+    SAVING = "Saving"
+
 class ExpenseBase(BaseModel):
     date: date
     category_id: int
     amount: float
+    intention: IntentionType = IntentionType.NEED
 
     class Config:
         orm_mode = True
@@ -86,6 +92,7 @@ class RecurringExpenseBase(BaseModel):
     name: str
     amount: float
     category_id: int
+    intention: IntentionType = IntentionType.NEED
     subscription_period: PeriodBase = PeriodBase(value=1, unit=PeriodUnit.MONTHS)
     effective_date: date
     billing_period: PeriodBase = PeriodBase(value=1, unit=PeriodUnit.MONTHS)
@@ -104,6 +111,13 @@ class RecurringExpense(RecurringExpenseBase):
     def __init__(self, **data):
         super().__init__(**data)
         self.category = CATEGORIES.get(self.category_id, "Unknown")
+
+# Add this with other Pydantic models
+class DueTomorrowResponse(BaseModel):
+    message: str
+
+class DueTomorrowListResponse(BaseModel):
+    subscriptions: List[RecurringExpense]
 
 @app.post("/expenses/", response_model=Expense)
 def create_expense(expense: ExpenseCreate, db: Session = Depends(get_db)):
@@ -126,6 +140,7 @@ def create_recurring_expense(expense: RecurringExpenseCreate, db: Session = Depe
         name=expense.name,
         amount=expense.amount,
         category_id=expense.category_id,
+        intention=expense.intention,
         subscription_period_value=expense.subscription_period.value,
         subscription_period_unit=expense.subscription_period.unit,
         effective_date=expense.effective_date,
@@ -144,6 +159,7 @@ def create_recurring_expense(expense: RecurringExpenseCreate, db: Session = Depe
         name=db_expense.name,
         amount=db_expense.amount,
         category_id=db_expense.category_id,
+        intention=db_expense.intention,
         subscription_period=PeriodBase(
             value=db_expense.subscription_period_value,
             unit=db_expense.subscription_period_unit
@@ -207,7 +223,7 @@ def export_expenses(db: Session = Depends(get_db)):
     ws.title = "Expenses_"+str(date.today())
     
     # Add headers
-    headers = ["ID", "Date", "Category", "Amount"]
+    headers = ["ID", "Date", "Category", "Amount", "Intention"]
     for col, header in enumerate(headers, 1):
         ws.cell(row=1, column=col, value=header)
     
@@ -217,6 +233,7 @@ def export_expenses(db: Session = Depends(get_db)):
         ws.cell(row=row, column=2, value=expense.date)
         ws.cell(row=row, column=3, value=CATEGORIES[expense.category_id])
         ws.cell(row=row, column=4, value=expense.amount)
+        ws.cell(row=row, column=5, value=expense.intention)
     
     # Create a temporary file
     with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp:
@@ -255,6 +272,7 @@ def get_recurring_expenses(db: Session = Depends(get_db)):
                 "name": sub.name,
                 "amount": sub.amount,
                 "category_id": sub.category_id,
+                "intention": sub.intention,
                 "subscription_period": {
                     "value": sub.subscription_period_value,
                     "unit": sub.subscription_period_unit
@@ -265,8 +283,8 @@ def get_recurring_expenses(db: Session = Depends(get_db)):
                     "unit": sub.billing_period_unit
                 },
                 "due_period": {
-                    "value": sub.due_period_value or 1,  # Default to 1 if None
-                    "unit": sub.due_period_unit or "months"  # Default to months if None
+                    "value": sub.due_period_value or 1,
+                    "unit": sub.due_period_unit or "months"
                 }
             }
             active_subscriptions.append(subscription_dict)
@@ -298,6 +316,7 @@ def update_subscription_effective_date(subscription_id: int, db: Session = Depen
         "name": subscription.name,
         "amount": subscription.amount,
         "category_id": subscription.category_id,
+        "intention": subscription.intention,
         "subscription_period": {
             "value": subscription.subscription_period_value,
             "unit": subscription.subscription_period_unit
@@ -323,6 +342,7 @@ def update_recurring_expense(subscription_id: int, expense: RecurringExpenseCrea
     db_expense.name = expense.name
     db_expense.amount = expense.amount
     db_expense.category_id = expense.category_id
+    db_expense.intention = expense.intention
     db_expense.subscription_period_value = expense.subscription_period.value
     db_expense.subscription_period_unit = expense.subscription_period.unit
     db_expense.effective_date = expense.effective_date
@@ -340,6 +360,7 @@ def update_recurring_expense(subscription_id: int, expense: RecurringExpenseCrea
         "name": db_expense.name,
         "amount": db_expense.amount,
         "category_id": db_expense.category_id,
+        "intention": db_expense.intention,
         "subscription_period": {
             "value": db_expense.subscription_period_value,
             "unit": db_expense.subscription_period_unit
@@ -353,4 +374,98 @@ def update_recurring_expense(subscription_id: int, expense: RecurringExpenseCrea
             "value": db_expense.due_period_value or 1,
             "unit": db_expense.due_period_unit or "months"
         }
+    }
+
+@app.get("/recurring-expenses/due-tomorrow", response_model=Union[DueTomorrowListResponse, DueTomorrowResponse])
+def get_subscriptions_due_tomorrow(db: Session = Depends(get_db)):
+    today = datetime.now().date()
+    
+    # Get all active subscriptions
+    subscriptions = db.query(models.RecurringExpense).all()
+    due_subscriptions = []
+    
+    for sub in subscriptions:
+        # Calculate the alert date: effective_date + due_period - 1 day
+        if sub.due_period_unit == "days":
+            alert_date = sub.effective_date + timedelta(days=sub.due_period_value - 1)
+        elif sub.due_period_unit == "months":
+            alert_date = sub.effective_date + relativedelta(months=sub.due_period_value) - timedelta(days=1)
+        else:  # years
+            alert_date = sub.effective_date + relativedelta(years=sub.due_period_value) - timedelta(days=1)
+        
+        # Check if the alert date is today
+        if alert_date == today:
+            # Convert database model to Pydantic model with proper period objects
+            subscription_dict = {
+                "id": sub.id,
+                "name": sub.name,
+                "amount": sub.amount,
+                "category_id": sub.category_id,
+                "intention": sub.intention,
+                "subscription_period": {
+                    "value": sub.subscription_period_value,
+                    "unit": sub.subscription_period_unit
+                },
+                "effective_date": sub.effective_date,
+                "billing_period": {
+                    "value": sub.billing_period_value,
+                    "unit": sub.billing_period_unit
+                },
+                "due_period": {
+                    "value": sub.due_period_value or 1,
+                    "unit": sub.due_period_unit or "months"
+                }
+            }
+            due_subscriptions.append(subscription_dict)
+    
+    if len(due_subscriptions) == 0:
+        return DueTomorrowResponse(message="No subscriptions due tomorrow")
+    return DueTomorrowListResponse(subscriptions=due_subscriptions)
+
+@app.delete("/recurring-expenses/{subscription_id}")
+def delete_recurring_expense(subscription_id: int, db: Session = Depends(get_db)):
+    subscription = db.query(models.RecurringExpense).filter(models.RecurringExpense.id == subscription_id).first()
+    if subscription is None:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+    
+    message = f"Subscription {subscription.name} amounting to {subscription.amount} deleted successfully"
+    db.delete(subscription)
+    db.commit()
+    return message
+
+@app.get("/expenses/intention-breakdown")
+def get_intention_breakdown(month: int, year: int, db: Session = Depends(get_db)):
+    # Get all expenses for the specified month and year
+    start_date = date(year, month, 1)
+    if month == 12:
+        end_date = date(year + 1, 1, 1)
+    else:
+        end_date = date(year, month + 1, 1)
+    
+    expenses = db.query(models.Expense).filter(
+        models.Expense.date >= start_date,
+        models.Expense.date < end_date
+    ).all()
+    
+    # Calculate totals for each intention
+    intention_totals = {
+        "Need": 0,
+        "Want": 0,
+        "Saving": 0
+    }
+    
+    for expense in expenses:
+        intention_totals[expense.intention] += expense.amount
+    
+    # Calculate percentages
+    total = sum(intention_totals.values())
+    intention_percentages = {
+        intention: (amount / total * 100) if total > 0 else 0
+        for intention, amount in intention_totals.items()
+    }
+    
+    return {
+        "totals": intention_totals,
+        "percentages": intention_percentages,
+        "total_amount": total
     }

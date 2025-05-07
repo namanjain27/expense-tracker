@@ -12,10 +12,14 @@ import {
   MenuItem,
   Box,
   Typography,
-  SelectChangeEvent
+  SelectChangeEvent,
+  RadioGroup,
+  Radio,
+  FormControlLabel,
+  FormLabel
 } from '@mui/material';
 import { api } from '../services/api';
-import { CATEGORIES } from '../types/expense';
+import { CATEGORIES, IntentionType } from '../types/expense';
 
 interface Period {
   value: number;
@@ -26,6 +30,7 @@ interface FormData {
   name: string;
   amount: string;
   category_id: string;
+  intention: IntentionType;
   subscription_period: Period;
   effective_date: string;
   billing_period: Period;
@@ -37,17 +42,28 @@ interface AddSubscriptionDialogProps {
   onClose: () => void;
   onSuccess: () => void;
   editData?: any;
+  initialData?: {
+    name: string;
+    amount: number;
+    category_id: number;
+    intention: IntentionType;
+    effective_date: string;
+    subscription_period: Period;
+    billing_period: Period;
+    due_period: Period;
+  };
 }
 
 const PERIOD_UNITS = ['days', 'months', 'years'];
 const PERIOD_VALUES = Array.from({ length: 30 }, (_, i) => i + 1);
 const DEFAULT_PERIOD = { value: 1, unit: 'years' };
 
-const AddSubscriptionDialog: React.FC<AddSubscriptionDialogProps> = ({ open, onClose, onSuccess, editData }) => {
+const AddSubscriptionDialog: React.FC<AddSubscriptionDialogProps> = ({ open, onClose, onSuccess, editData, initialData }) => {
   const [formData, setFormData] = useState<FormData>({
     name: '',
     amount: '',
     category_id: '',
+    intention: 'Need',
     subscription_period: DEFAULT_PERIOD,
     effective_date: new Date().toISOString().split('T')[0],
     billing_period: DEFAULT_PERIOD,
@@ -60,13 +76,37 @@ const AddSubscriptionDialog: React.FC<AddSubscriptionDialogProps> = ({ open, onC
         name: editData.name,
         amount: editData.amount.toString(),
         category_id: editData.category_id.toString(),
+        intention: editData.intention,
         subscription_period: editData.subscription_period,
         effective_date: editData.effective_date,
         billing_period: editData.billing_period,
         due_period: editData.due_period
       });
+    } else if (initialData) {
+      setFormData({
+        name: initialData.name,
+        amount: initialData.amount.toString(),
+        category_id: initialData.category_id.toString(),
+        intention: initialData.intention,
+        subscription_period: initialData.subscription_period,
+        effective_date: initialData.effective_date,
+        billing_period: initialData.billing_period,
+        due_period: initialData.due_period
+      });
+    } else if (open) {
+      // Reset form data when dialog opens for new subscription
+      setFormData({
+        name: '',
+        amount: '',
+        category_id: '',
+        intention: 'Need',
+        subscription_period: DEFAULT_PERIOD,
+        effective_date: new Date().toISOString().split('T')[0],
+        billing_period: DEFAULT_PERIOD,
+        due_period: DEFAULT_PERIOD
+      });
     }
-  }, [editData]);
+  }, [editData, initialData, open]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
     const { name, value } = e.target;
@@ -148,6 +188,18 @@ const AddSubscriptionDialog: React.FC<AddSubscriptionDialogProps> = ({ open, onC
                 <MenuItem key={id} value={id}>{name}</MenuItem>
               ))}
             </Select>
+          </FormControl>
+          <FormControl component="fieldset">
+            <FormLabel component="legend">Intention</FormLabel>
+            <RadioGroup
+              row
+              value={formData.intention}
+              onChange={(e) => setFormData(prev => ({ ...prev, intention: e.target.value as IntentionType }))}
+            >
+              <FormControlLabel value="Need" control={<Radio />} label="Need" />
+              <FormControlLabel value="Want" control={<Radio />} label="Want" />
+              <FormControlLabel value="Saving" control={<Radio />} label="Saving" />
+            </RadioGroup>
           </FormControl>
           <TextField
             fullWidth

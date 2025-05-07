@@ -1,13 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import { Box, Button, Container, Paper, Typography, Tooltip, Grid } from '@mui/material';
-import { Doughnut, Line } from 'react-chartjs-2';
+import React, { useEffect, useState, useRef } from 'react';
+import { Box, Button, Container, Paper, Typography, Tooltip, Grid, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { Doughnut, Line, Pie } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip as ChartTooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, Title } from 'chart.js';
 import { Expense, TotalExpenses} from '../types/expense';
 import { api } from '../services/api';
 import AddExpenseDialog from './AddExpenseDialog';
 import DeleteExpenseDialog from './DeleteExpenseDialog';
 import ExpenseList from './ExpenseList';
-import SubscriptionsPanel from './SubscriptionsPanel';
+import SubscriptionsPanel, { SubscriptionsPanelRef } from './SubscriptionsPanel';
 
 ChartJS.register(ArcElement, ChartTooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, Title);
 
@@ -17,6 +17,14 @@ const Dashboard: React.FC = () => {
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
+    const subscriptionsPanelRef = useRef<SubscriptionsPanelRef>(null);
+    const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+    const [intentionData, setIntentionData] = useState<{
+        totals: { [key: string]: number },
+        percentages: { [key: string]: number },
+        total_amount: number
+    } | null>(null);
 
     const fetchData = async () => {
         try {
@@ -38,11 +46,24 @@ const Dashboard: React.FC = () => {
         fetchData();
     }, []);
 
+    useEffect(() => {
+        const fetchIntentionData = async () => {
+            try {
+                const data = await api.getIntentionBreakdown(selectedMonth, selectedYear);
+                setIntentionData(data);
+            } catch (error) {
+                console.error('Error fetching intention data:', error);
+            }
+        };
+        fetchIntentionData();
+    }, [selectedMonth, selectedYear]);
+
     const handleAddExpense = async (expense: Omit<Expense, 'id' | 'category'>) => {
         try {
             await api.createExpense(expense);
             fetchData();
             setIsAddDialogOpen(false);
+            subscriptionsPanelRef.current?.fetchSubscriptions();
         } catch (error) {
             console.error('Error adding expense:', error);
         }
@@ -57,6 +78,11 @@ const Dashboard: React.FC = () => {
         } catch (error) {
             console.error('Error deleting expense:', error);
         }
+    };
+
+    const handleDeleteClick = (expense: Expense) => {
+        setSelectedExpense(expense);
+        setIsDeleteDialogOpen(true);
     };
 
     const chartData = {
@@ -141,6 +167,54 @@ const Dashboard: React.FC = () => {
         }
     };
 
+    const intentionChartData = {
+        labels: ['Need', 'Want', 'Saving'],
+        datasets: [{
+            data: intentionData ? [
+                intentionData.percentages.Need,
+                intentionData.percentages.Want,
+                intentionData.percentages.Saving
+            ] : [0, 0, 0],
+            backgroundColor: [
+                '#2196F3',// Blue for Need
+                '#FFC107',  // Amber for Want
+                '#4CAF50'   // Green for Saving
+            ]
+        }]
+    };
+
+    const intentionChartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            tooltip: {
+                callbacks: {
+                    label: (context: any) => {
+                        const label = context.label || '';
+                        const value = context.raw || 0;
+                        const total = intentionData?.total_amount || 0;
+                        const amount = (value / 100) * total;
+                        return `${label}: ${value.toFixed(1)}% (₹${amount.toFixed(2)})`;
+                    }
+                }
+            },
+            title: {
+                display: true,
+                text: 'Total Amount: ₹' + intentionData?.total_amount.toFixed(2) || '0.00'
+            }
+        }
+    };
+
+    const months = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+
+    const years = Array.from(
+        { length: 5 },
+        (_, i) => new Date().getFullYear() - i
+    );
+
     return (
         <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
             <Typography variant="h4" gutterBottom>
@@ -174,6 +248,49 @@ const Dashboard: React.FC = () => {
                                 options={lineChartOptions}
                             />
                         </Paper>
+                        <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '400px' }}>
+                        <Box sx={{ mb: 2, display: 'flex', gap: 2, alignItems: 'center' }}>
+                            <Typography variant="h6" sx={{ ml: 2 }}>
+                                Expense Intention Breakdown
+                            </Typography>
+                            <FormControl sx={{ minWidth: 120 }}>
+                                <InputLabel>Month</InputLabel>
+                                <Select
+                                    value={selectedMonth}
+                                    label="Month"
+                                    onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                                >
+                                    {months.map((month, index) => (
+                                        <MenuItem key={month} value={index + 1}>
+                                            {month}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                            <FormControl sx={{ minWidth: 120 }}>
+                                <InputLabel>Year</InputLabel>
+                                <Select
+                                    value={selectedYear}
+                                    label="Year"
+                                    onChange={(e) => setSelectedYear(Number(e.target.value))}
+                                >
+                                    {years.map((year) => (
+                                        <MenuItem key={year} value={year}>
+                                            {year}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        </Box>
+                        <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                            <Box sx={{ width: '60%', height: '100%' }}>
+                                <Pie 
+                                    data={intentionChartData}
+                                    options={intentionChartOptions}
+                                />
+                            </Box>
+                        </Box>
+                    </Paper>
                     </Box>
                     <Box sx={{ flex: 1.2 }}>
                         <Paper sx={{ p: 2, height: '100%' }}>
@@ -184,18 +301,6 @@ const Dashboard: React.FC = () => {
                                 >
                                     Add Expense
                                 </Button>
-                                <Tooltip title={!selectedExpense ? "Select an expense to delete" : ""}>
-                                    <span>
-                                        <Button
-                                            variant="contained"
-                                            color="error"
-                                            onClick={() => setIsDeleteDialogOpen(true)}
-                                            disabled={!selectedExpense}
-                                        >
-                                            Delete Expense
-                                        </Button>
-                                    </span>
-                                </Tooltip>
                                 <Tooltip title="Download all expenses as Excel file">
                                     <Button
                                         variant="contained"
@@ -210,13 +315,16 @@ const Dashboard: React.FC = () => {
                                 expenses={expenses}
                                 onSelectExpense={setSelectedExpense}
                                 selectedExpense={selectedExpense}
+                                onDeleteClick={handleDeleteClick}
                             />
                         </Paper>
                     </Box>
                 </Box>
                 
+                
+                
                 <Box sx={{ width: '100%' }}>
-                    <SubscriptionsPanel />
+                    <SubscriptionsPanel ref={subscriptionsPanelRef} />
                 </Box>
             </Box>
 
@@ -224,6 +332,7 @@ const Dashboard: React.FC = () => {
                 open={isAddDialogOpen}
                 onClose={() => setIsAddDialogOpen(false)}
                 onAdd={handleAddExpense}
+                onSubscriptionSuccess={() => subscriptionsPanelRef.current?.fetchSubscriptions()}
             />
 
             <DeleteExpenseDialog

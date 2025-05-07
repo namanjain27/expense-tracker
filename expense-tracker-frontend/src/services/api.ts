@@ -47,5 +47,19 @@ export const api = {
     updateSubscriptionEffectiveDate: async (subscriptionId: number): Promise<Subscription> => {
         const response = await axios.post(`/recurring-expenses/${subscriptionId}/update-effective-date`);
         return response.data;
+    },
+
+    deleteRecurringExpense: async (id: number): Promise<string> => {
+        const response = await axios.delete(`/recurring-expenses/${id}`);
+        return response.data;
+    },
+
+    getIntentionBreakdown: async (month: number, year: number): Promise<{
+        totals: { [key: string]: number },
+        percentages: { [key: string]: number },
+        total_amount: number
+    }> => {
+        const response = await axios.get(`/expenses/intention-breakdown?month=${month}&year=${year}`);
+        return response.data;
     }
 }; 
