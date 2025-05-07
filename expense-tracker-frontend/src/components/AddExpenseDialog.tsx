@@ -153,7 +153,7 @@ const AddExpenseDialog: React.FC<AddExpenseDialogProps> = ({ open, onClose, onAd
                     onSuccess={handleSubscriptionSuccess}
                     editData={null}
                     initialData={{
-                        name: `${CATEGORIES[categoryId as 1 | 2 | 3 | 4 | 5 | 6]} Subscription`,
+                        name: `${CATEGORIES[categoryId as keyof typeof CATEGORIES]} Subscription`,
                         amount: parseFloat(amount),
                         category_id: categoryId,
                         intention,
