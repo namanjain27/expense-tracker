@@ -1,9 +1,12 @@
+export type IntentionType = 'Need' | 'Want' | 'Saving';
+
 export interface Expense {
     id: number;
     date: string;
     category_id: number;
-    amount: number;
     category: string;
+    amount: number;
+    intention: IntentionType;
 }
 
 export interface CategoryTotal {
@@ -15,7 +18,7 @@ export interface TotalExpenses {
     category_breakdown: CategoryTotal;
 }
 
-export const CATEGORIES = {
+export const CATEGORIES: { [key: number]: string } = {
     1: "Food",
     2: "Rent",
     3: "Travel",

@@ -34,8 +34,7 @@ const DeleteExpenseDialog: React.FC<DeleteExpenseDialogProps> = ({
             <DialogContent>
                 {expense ? (
                     <Typography>
-                        Are you sure you want to delete the expense of ${expense.amount.toFixed(2)} 
-                        for {expense.category} on {expense.date}?
+                        Are you sure you want to delete the expense of ₹{expense.amount.toFixed(2)} for {expense.category} on {expense.date}?
                     </Typography>
                 ) : (
                     <Typography>Please select an expense to delete.</Typography>

@@ -1,3 +1,5 @@
+import { IntentionType } from './expense';
+
 export interface Period {
     value: number;
     unit: string;
@@ -9,6 +11,7 @@ export interface Subscription {
     amount: number;
     category_id: number;
     category: string;
+    intention: IntentionType;
     subscription_period: Period;
     effective_date: string;
     billing_period: Period;

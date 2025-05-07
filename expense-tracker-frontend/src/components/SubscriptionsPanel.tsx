@@ -1,24 +1,25 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, forwardRef, useImperativeHandle } from 'react';
 import { Card, CardContent, Typography, List, ListItem, ListItemText, Divider, Button, Box, Tooltip, IconButton } from '@mui/material';
 import { format } from 'date-fns';
 import { api } from '../services/api';
 import { Subscription } from '../types/subscription';
 import AddSubscriptionDialog from './AddSubscriptionDialog';
 import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 
 interface Period {
   value: number;
   unit: string;
 }
 
-const SubscriptionsPanel: React.FC = () => {
+export interface SubscriptionsPanelRef {
+  fetchSubscriptions: () => void;
+}
+
+const SubscriptionsPanel = forwardRef<SubscriptionsPanelRef>((_, ref) => {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingSubscription, setEditingSubscription] = useState<Subscription | null>(null);
-
-  useEffect(() => {
-    fetchSubscriptions();
-  }, []);
 
   const fetchSubscriptions = async () => {
     try {
@@ -29,13 +30,22 @@ const SubscriptionsPanel: React.FC = () => {
     }
   };
 
+  useImperativeHandle(ref, () => ({
+    fetchSubscriptions
+  }));
+
+  useEffect(() => {
+    fetchSubscriptions();
+  }, []);
+
   const handlePay = async (subscription: Subscription) => {
     try {
       // Create a new expense from the subscription
       await api.createExpense({
         date: new Date().toISOString().split('T')[0],
         category_id: subscription.category_id,
-        amount: subscription.amount
+        amount: subscription.amount,
+        intention: subscription.intention
       });
       
       // Update the subscription's effective date
@@ -56,6 +66,17 @@ const SubscriptionsPanel: React.FC = () => {
   const handleDialogClose = () => {
     setIsAddDialogOpen(false);
     setEditingSubscription(null);
+  };
+
+  const handleDelete = async (subscription: Subscription) => {
+    if (window.confirm(`Are you sure you want to delete the subscription "${subscription.name}"?`)) {
+      try {
+        await api.deleteRecurringExpense(subscription.id);
+        fetchSubscriptions(); // Refresh the list
+      } catch (error) {
+        console.error('Error deleting subscription:', error);
+      }
+    }
   };
 
   const formatAmount = (amount: number) => {
@@ -115,6 +136,13 @@ const SubscriptionsPanel: React.FC = () => {
                         >
                           <EditIcon />
                         </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDelete(subscription)}
+                          color="error"
+                        >
+                          <DeleteIcon />
+                        </IconButton>
                         <Tooltip title={getPaymentTooltip(subscription)}>
                           <span>
                             <Button
@@ -140,9 +168,11 @@ const SubscriptionsPanel: React.FC = () => {
                       <Typography component="span" variant="body2">
                         Category: {subscription.category}
                         <br />
-                        Effective: {format(new Date(subscription.effective_date), 'MMM dd, yyyy')}
+                        Intention: {subscription.intention}
                         <br />
-                        Due: {formatPeriod(subscription.due_period)}
+                        Billing Date: {format(new Date(subscription.effective_date), 'MMM dd, yyyy')}
+                        <br />
+                        Due Period: {formatPeriod(subscription.due_period)}
                       </Typography>
                     </>
                   }
@@ -167,6 +197,6 @@ const SubscriptionsPanel: React.FC = () => {
       />
     </Card>
   );
-};
+});
 
 export default SubscriptionsPanel; 
