@@ -119,10 +119,20 @@ const BudgetComparison: React.FC<BudgetComparisonProps> = ({ selectedMonth, sele
             };
         }
 
-        const categories = Object.keys(budget.category_budgets);
-        const budgetValues = categories.map(() => 100);
+        // Filter categories that have either budget or expenses
+        const categories = Object.keys(budget.category_budgets).filter(category => {
+            const budgetAmount = budget.category_budgets[category] || 0;
+            const expenseAmount = expenses.category_breakdown[category] || 0;
+            return budgetAmount > 0 || expenseAmount > 0;
+        });
+
+        const budgetValues = categories.map(category => {
+            const budgetAmount = budget.category_budgets[category] || 0;
+            return budgetAmount > 0 ? 100 : 0;
+        });
+
         const expenseValues = categories.map(category => {
-            const budgetAmount = budget.category_budgets[category];
+            const budgetAmount = budget.category_budgets[category] || 0;
             const expenseAmount = expenses.category_breakdown[category] || 0;
             return budgetAmount > 0 ? (expenseAmount / budgetAmount) * 100 : 0;
         });
@@ -130,11 +140,11 @@ const BudgetComparison: React.FC<BudgetComparisonProps> = ({ selectedMonth, sele
         // Add savings comparison
         const totalBudget = budget.monthly_income;
         const totalExpenses = expenses.overall_total;
-        const actualSavings = totalBudget - totalExpenses;
+        const actualSavings = totalBudget - totalExpenses + expenses.category_breakdown["Savings"];
         const budgetedSavings = budget.saving_goal;
 
-        categories.push('Savings');
-        budgetValues.push(100);
+        categories.push('Total Savings');
+        budgetValues.push(budgetedSavings > 0 ? 100 : 0);
         expenseValues.push(budgetedSavings > 0 ? (actualSavings / budgetedSavings) * 100 : 0);
 
         const maxPercentage = Math.max(...expenseValues, 100);
@@ -182,13 +192,28 @@ const BudgetComparison: React.FC<BudgetComparisonProps> = ({ selectedMonth, sele
                     label: (context: any) => {
                         const label = context.dataset.label || '';
                         const value = context.raw || 0;
+                        const category = context.label;
+                        
                         if (label.includes('Budget')) {
-                            return `${label}`;
+                            if (category === 'Total Savings') {
+                                return `Budget: ₹${budget?.saving_goal.toFixed(2)}`;
+                            }
+                            const budgetAmount = budget?.category_budgets[category] || 0;
+                            return `Budget: ₹${budgetAmount.toFixed(2)}`;
                         }
+                        
                         if (budget) {
-                            return `${label}: ${value.toFixed(1)}%`;
+                            if (category === 'Total Savings') {
+                                const actualSavings = budget.monthly_income - (expenses?.overall_total || 0) + (expenses?.category_breakdown["Savings"] || 0);
+                                return `Actual: ₹${actualSavings.toFixed(2)} (${value.toFixed(1)}%)`;
+                            }
+                            const budgetAmount = budget.category_budgets[category] || 0;
+                            const actualAmount = expenses?.category_breakdown[category] || 0;
+                            return `Actual: ₹${actualAmount.toFixed(2)} (${value.toFixed(1)}%)`;
                         }
-                        return `${label}: ₹${value.toFixed(2)}`;
+                        
+                        const actualAmount = expenses?.category_breakdown[category] || 0;
+                        return `${label}: ₹${actualAmount.toFixed(2)}`;
                     }
                 }
             }
