@@ -26,7 +26,9 @@ const Dashboard: React.FC = () => {
     const [intentionData, setIntentionData] = useState<{
         totals: { [key: string]: number },
         percentages: { [key: string]: number },
-        total_amount: number
+        total_amount: number,
+        budget_income: number,
+        Saving_Untouched: number
     } | null>(null);
     const [openBudgetDialog, setOpenBudgetDialog] = useState(false);
     const [currentMonth] = useState(() => {
@@ -64,7 +66,19 @@ const Dashboard: React.FC = () => {
         const fetchIntentionData = async () => {
             try {
                 const data = await api.getIntentionBreakdown(selectedMonth, selectedYear);
-                setIntentionData(data);
+                const budgetData = await api.getLatestBudget(selectedMonth, selectedYear).catch(() => null);
+                
+                // Calculate Savings [Untouched]
+                const budgetIncome = budgetData?.monthly_income || 0;
+                const totalExpenses = data.total_amount;
+                const untouchedSavings = budgetIncome - totalExpenses;
+                const untouchedSavingsPercentage = budgetIncome > 0 ? (untouchedSavings / budgetIncome) * 100 : 0;
+
+                setIntentionData({
+                    ...data,
+                    budget_income: budgetIncome,
+                    Saving_Untouched: untouchedSavingsPercentage
+                });
             } catch (error) {
                 console.error('Error fetching intention data:', error);
             }
@@ -161,17 +175,19 @@ const Dashboard: React.FC = () => {
     };
 
     const intentionChartData = {
-        labels: ['Need', 'Want', 'Saving'],
+        labels: ['Need', 'Want', 'Saving', 'Savings [Untouched]'],
         datasets: [{
             data: intentionData ? [
                 intentionData.percentages.Need,
                 intentionData.percentages.Want,
-                intentionData.percentages.Saving
-            ] : [0, 0, 0],
+                intentionData.percentages.Saving,
+                intentionData.Saving_Untouched || 0
+            ] : [0, 0, 0, 0],
             backgroundColor: [
-                '#2196F3',// Blue for Need
+                '#2196F3',  // Blue for Need
                 '#FFC107',  // Amber for Want
-                '#4CAF50'   // Green for Saving
+                '#9ACD32',  // Green for Saving
+                '#4CAF50'   // Light Green for Savings [Untouched]
             ]
         }]
     };
@@ -186,14 +202,21 @@ const Dashboard: React.FC = () => {
                         const label = context.label || '';
                         const value = context.raw || 0;
                         const total = intentionData?.total_amount || 0;
-                        const amount = (value / 100) * total;
+                        let amount = (value / 100) * total;
+                        
+                        // For Savings [Untouched], calculate based on budget income
+                        if (label === 'Savings [Untouched]') {
+                            const budgetIncome = intentionData?.budget_income || 0;
+                            amount = budgetIncome - total;
+                        }
+                        
                         return `${label}: ${value.toFixed(1)}% (₹${amount.toFixed(2)})`;
                     }
                 }
             },
             title: {
                 display: true,
-                text: 'Total Amount: ₹' + intentionData?.total_amount.toFixed(2) || '0.00'
+                text: 'Total Expense Amount: ₹' + intentionData?.total_amount.toFixed(2) || '0.00'
             }
         }
     };
