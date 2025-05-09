@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Dialog,
     DialogTitle,
@@ -30,14 +30,51 @@ const AddExpenseDialog: React.FC<AddExpenseDialogProps> = ({ open, onClose, onAd
     const formattedDate = today.getFullYear() + '-' + 
         String(today.getMonth() + 1).padStart(2, '0') + '-' + 
         String(today.getDate()).padStart(2, '0');
+    const [name, setName] = useState('');
     const [date, setDate] = useState(formattedDate);
     const [categoryId, setCategoryId] = useState<number>(1);
     const [amount, setAmount] = useState('');
     const [intention, setIntention] = useState<IntentionType>('Need');
     const [isRecurring, setIsRecurring] = useState(false);
     const [showSubscriptionDialog, setShowSubscriptionDialog] = useState(false);
+    const [isPredicting, setIsPredicting] = useState(false);
+
+    // Add prediction effect
+    useEffect(() => {
+        const predictCategory = async () => {
+            if (name.trim()) {
+                setIsPredicting(true);
+                try {
+                    const response = await fetch('http://localhost:8000/predict-category', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ name }),
+                    });
+                    const data = await response.json();
+                    if (data.category) {
+                        // Find category ID from name
+                        const categoryId = Object.entries(CATEGORIES).find(
+                            ([_, catName]) => catName === data.category
+                        )?.[0];
+                        if (categoryId) {
+                            setCategoryId(parseInt(categoryId));
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error predicting category:', error);
+                }
+                setIsPredicting(false);
+            }
+        };
+
+        const timeoutId = setTimeout(predictCategory, 500); // Debounce for 500ms
+        return () => clearTimeout(timeoutId);
+    }, [name]);
 
     const resetForm = () => {
+        setName('');
         setDate(formattedDate);
         setCategoryId(1);
         setAmount('');
@@ -51,6 +88,7 @@ const AddExpenseDialog: React.FC<AddExpenseDialogProps> = ({ open, onClose, onAd
             setShowSubscriptionDialog(true);
         } else {
             onAdd({
+                name,
                 date,
                 category_id: categoryId,
                 amount: parseFloat(amount),
@@ -82,6 +120,12 @@ const AddExpenseDialog: React.FC<AddExpenseDialogProps> = ({ open, onClose, onAd
                     <DialogContent>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                             <TextField
+                                label="Name"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                helperText={isPredicting ? "Predicting category..." : ""}
+                            />
+                            <TextField
                                 label="Date"
                                 type="date"
                                 value={date}
@@ -91,7 +135,7 @@ const AddExpenseDialog: React.FC<AddExpenseDialogProps> = ({ open, onClose, onAd
                             />
                             <TextField
                                 select
-                                label="Category"
+                                label="Category (AI autofill)"
                                 value={categoryId}
                                 onChange={(e) => setCategoryId(parseInt(e.target.value))}
                                 required
@@ -153,7 +197,7 @@ const AddExpenseDialog: React.FC<AddExpenseDialogProps> = ({ open, onClose, onAd
                     onSuccess={handleSubscriptionSuccess}
                     editData={null}
                     initialData={{
-                        name: `${CATEGORIES[categoryId as keyof typeof CATEGORIES]} Subscription`,
+                        name: name || `${CATEGORIES[categoryId as keyof typeof CATEGORIES]} Subscription`,
                         amount: parseFloat(amount),
                         category_id: categoryId,
                         intention,

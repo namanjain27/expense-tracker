@@ -44,7 +44,8 @@ const SubscriptionsPanel = forwardRef<SubscriptionsPanelRef>((_, ref) => {
         date: new Date().toISOString().split('T')[0],
         category_id: subscription.category_id,
         amount: subscription.amount,
-        intention: subscription.intention
+        intention: subscription.intention,
+        name: subscription.name
       });
       
       await api.updateSubscriptionEffectiveDate(subscription.id);
