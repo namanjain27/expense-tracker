@@ -59,6 +59,7 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
                     <TableHead>
                         <TableRow>
                             <TableCell>Date</TableCell>
+                            <TableCell>Name</TableCell>
                             <TableCell>Category</TableCell>
                             <TableCell>Intention</TableCell>
                             <TableCell align="right">Amount</TableCell>
@@ -75,6 +76,7 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
                                 sx={{ cursor: 'pointer' }}
                             >
                                 <TableCell>{expense.date}</TableCell>
+                                <TableCell>{expense.name}</TableCell>
                                 <TableCell>{expense.category}</TableCell>
                                 <TableCell>{expense.intention}</TableCell>
                                 <TableCell align="right">₹{expense.amount.toFixed(2)}</TableCell>
@@ -96,7 +98,7 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
                         ))}
                         {expenses.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={5} align="center">
+                                <TableCell colSpan={6} align="center">
                                     No expenses found
                                 </TableCell>
                             </TableRow>

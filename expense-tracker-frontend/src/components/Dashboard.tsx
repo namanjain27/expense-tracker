@@ -41,6 +41,7 @@ const Dashboard: React.FC = () => {
     const [dailyExpenses, setDailyExpenses] = useState<DailyExpense[]>([]);
     const [lineGraphLoading, setLineGraphLoading] = useState(false);
     const [lineGraphError, setLineGraphError] = useState<string>('');
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
 
     const fetchData = async () => {
         try {
@@ -58,56 +59,63 @@ const Dashboard: React.FC = () => {
         }
     };
 
+    const fetchIntentionData = async () => {
+        try {
+            const data = await api.getIntentionBreakdown(selectedMonth, selectedYear);
+            const budgetData = await api.getLatestBudget(selectedMonth, selectedYear).catch(() => null);
+            
+            // Calculate Savings [Untouched]
+            const budgetIncome = budgetData?.monthly_income || 0;
+            const totalExpenses = data.total_amount;
+            const untouchedSavings = budgetIncome - totalExpenses;
+            const untouchedSavingsPercentage = budgetIncome > 0 ? (untouchedSavings / budgetIncome) * 100 : 0;
+
+            setIntentionData({
+                ...data,
+                budget_income: budgetIncome,
+                Saving_Untouched: untouchedSavingsPercentage
+            });
+        } catch (error) {
+            console.error('Error fetching intention data:', error);
+        }
+    };
+
+    const fetchDailyExpenses = async () => {
+        try {
+            setLineGraphLoading(true);
+            setLineGraphError('');
+            const response = await api.getDailyExpenses(selectedMonth, selectedYear);
+            setDailyExpenses(response.daily_expenses);
+        } catch (error) {
+            console.error('Error fetching daily expenses:', error);
+            setLineGraphError('Failed to load daily expenses data');
+        } finally {
+            setLineGraphLoading(false);
+        }
+    };
+
     useEffect(() => {
         fetchData();
     }, [selectedMonth, selectedYear]);
 
     useEffect(() => {
-        const fetchIntentionData = async () => {
-            try {
-                const data = await api.getIntentionBreakdown(selectedMonth, selectedYear);
-                const budgetData = await api.getLatestBudget(selectedMonth, selectedYear).catch(() => null);
-                
-                // Calculate Savings [Untouched]
-                const budgetIncome = budgetData?.monthly_income || 0;
-                const totalExpenses = data.total_amount;
-                const untouchedSavings = budgetIncome - totalExpenses;
-                const untouchedSavingsPercentage = budgetIncome > 0 ? (untouchedSavings / budgetIncome) * 100 : 0;
-
-                setIntentionData({
-                    ...data,
-                    budget_income: budgetIncome,
-                    Saving_Untouched: untouchedSavingsPercentage
-                });
-            } catch (error) {
-                console.error('Error fetching intention data:', error);
-            }
-        };
         fetchIntentionData();
     }, [selectedMonth, selectedYear]);
 
     useEffect(() => {
-        const fetchDailyExpenses = async () => {
-            try {
-                setLineGraphLoading(true);
-                setLineGraphError('');
-                const response = await api.getDailyExpenses(selectedMonth, selectedYear);
-                setDailyExpenses(response.daily_expenses);
-            } catch (error) {
-                console.error('Error fetching daily expenses:', error);
-                setLineGraphError('Failed to load daily expenses data');
-            } finally {
-                setLineGraphLoading(false);
-            }
-        };
-
         fetchDailyExpenses();
     }, [selectedMonth, selectedYear]);
 
     const handleAddExpense = async (expense: Omit<Expense, 'id' | 'category'>) => {
         try {
             await api.createExpense(expense);
-            fetchData();
+            // Reload all data
+            await Promise.all([
+                fetchData(),
+                fetchIntentionData(),
+                fetchDailyExpenses()
+            ]);
+            setRefreshTrigger(prev => prev + 1);
             setIsAddDialogOpen(false);
             subscriptionsPanelRef.current?.fetchSubscriptions();
         } catch (error) {
@@ -118,7 +126,13 @@ const Dashboard: React.FC = () => {
     const handleDeleteExpense = async (id: number) => {
         try {
             await api.deleteExpense(id);
-            fetchData();
+            // Reload all data
+            await Promise.all([
+                fetchData(),
+                fetchIntentionData(),
+                fetchDailyExpenses()
+            ]);
+            setRefreshTrigger(prev => prev + 1);  // Increment refresh trigger
             setIsDeleteDialogOpen(false);
             setSelectedExpense(null);
         } catch (error) {
@@ -329,113 +343,125 @@ const Dashboard: React.FC = () => {
                     </Button>
             </Box>
             <Box sx={{ display: 'flex', gap: 3, flexDirection: 'column' }}>
-                <Box sx={{ display: 'flex', gap: 3 }}>
-                    <Box sx={{ flex: 1.5, display: 'flex', flexDirection: 'column', gap: 3 }}>
-                        <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '400px' }}>
-                            <Box sx={{ mb: 2 }}>
-                                <Typography variant="h6">Monthly Expenses</Typography>
-                            </Box>
-                            <Box sx={{ display: 'flex', height: 'calc(100% - 60px)' }}>
-                                <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', maxHeight: '100%' }}>
-                                    <Box sx={{ width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                        <Doughnut 
-                                            data={chartData}
-                                            options={{
-                                                ...chartOptions,
-                                                maintainAspectRatio: false
-                                            }}
-                                        />
-                                    </Box>
-                                </Box>
-                                <Box sx={{ flex: 1, p: 2, overflowY: 'auto' }}>
-                                    <Typography variant="h5">Total: ₹{totals?.overall_total.toFixed(2) || '0.00'}</Typography>
-                                    {totals && Object.entries(totals.category_breakdown)
-                                        .sort((a, b) => b[1] - a[1])
-                                        .map(([category, amount]) => (
-                                            <Box key={category} sx={{ mt: 1 }}>
-                                                <Typography>
-                                                    {category}: ₹{amount.toFixed(2)}
-                                                </Typography>
-                                            </Box>
-                                        ))}
-                                </Box>
-                            </Box>
-                        </Paper>
-                        
-                        <BudgetComparison 
-                            selectedMonth={selectedMonth}
-                            selectedYear={selectedYear}
-                        />
-                        
-                        <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '400px' }}>
-                            <Box sx={{ mb: 2 }}>
-                                <Typography variant="h6" sx={{ ml: 2 }}>
-                                    Expense Intention Breakdown
-                                </Typography>
-                            </Box>
-                            <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                <Box sx={{ width: '60%', height: '100%' }}>
-                                    <Pie 
-                                        data={intentionChartData}
-                                        options={intentionChartOptions}
+                {/* 2x2 Grid for Charts */}
+                <Box sx={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: 'repeat(2, 1fr)', 
+                    gap: 3 
+                }}>
+                    {/* Monthly Expenses Chart */}
+                    <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '400px' }}>
+                        <Box sx={{ mb: 2 }}>
+                            <Typography variant="h6">Monthly Expenses</Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', height: 'calc(100% - 60px)' }}>
+                            <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', maxHeight: '100%' }}>
+                                <Box sx={{ width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                    <Doughnut 
+                                        data={chartData}
+                                        options={{
+                                            ...chartOptions,
+                                            maintainAspectRatio: false
+                                        }}
                                     />
                                 </Box>
                             </Box>
-                        </Paper>
-                        <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '400px' }}>
-                            <Box sx={{ mb: 2 }}>
-                                <Typography variant="h6">Daily Expense Variation</Typography>
+                            <Box sx={{ flex: 1, p: 2, overflowY: 'auto' }}>
+                                <Typography variant="h5">Total: ₹{totals?.overall_total.toFixed(2) || '0.00'}</Typography>
+                                {totals && Object.entries(totals.category_breakdown)
+                                    .sort((a, b) => b[1] - a[1])
+                                    .map(([category, amount]) => (
+                                        <Box key={category} sx={{ mt: 1 }}>
+                                            <Typography>
+                                                {category}: ₹{amount.toFixed(2)}
+                                            </Typography>
+                                        </Box>
+                                    ))}
                             </Box>
-                            {lineGraphLoading ? (
-                                <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Typography>Loading daily expenses...</Typography>
-                                </Box>
-                            ) : lineGraphError ? (
-                                <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Typography color="error">{lineGraphError}</Typography>
-                                </Box>
-                            ) : dailyExpenses.length === 0 ? (
-                                <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Typography color="text.secondary">
-                                        No expenses recorded for {months[selectedMonth - 1]} {selectedYear}
-                                    </Typography>
-                                </Box>
-                            ) : (
-                                <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Line data={lineChartData} options={lineChartOptions} />
-                                </Box>
-                            )}
-                        </Paper>
-                    </Box>
-                    <Box sx={{ flex: 1.2 }}>
-                        <Paper sx={{ p: 2, height: '100%' }}>
-                            <Box sx={{ mb: 2, display: 'flex', gap: 1 }}>
-                                <Button
-                                    variant="contained"
-                                    onClick={() => setIsAddDialogOpen(true)}
-                                >
-                                    Add Expense
-                                </Button>
-                                <Tooltip title="Download all expenses as Excel file">
-                                    <Button
-                                        variant="contained"
-                                        color="secondary"
-                                        onClick={() => api.exportExpenses()}
-                                    >
-                                        Export Data
-                                    </Button>
-                                </Tooltip>
+                        </Box>
+                    </Paper>
+
+                    {/* Budget Comparison Chart */}
+                    <BudgetComparison 
+                        selectedMonth={selectedMonth}
+                        selectedYear={selectedYear}
+                        refreshTrigger={refreshTrigger}
+                    />
+
+                    {/* Expense Intention Breakdown Chart */}
+                    <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '400px' }}>
+                        <Box sx={{ mb: 2 }}>
+                            <Typography variant="h6" sx={{ ml: 2 }}>
+                                Expense Intention Breakdown
+                            </Typography>
+                        </Box>
+                        <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                            <Box sx={{ width: '60%', height: '100%' }}>
+                                <Pie 
+                                    data={intentionChartData}
+                                    options={intentionChartOptions}
+                                />
                             </Box>
-                            <ExpenseList
-                                expenses={expenses}
-                                onSelectExpense={setSelectedExpense}
-                                selectedExpense={selectedExpense}
-                                onDeleteClick={handleDeleteClick}
-                            />
-                        </Paper>
-                    </Box>
+                        </Box>
+                    </Paper>
+
+                    {/* Daily Expense Variation Chart */}
+                    <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '400px' }}>
+                        <Box sx={{ mb: 2 }}>
+                            <Typography variant="h6">Daily Expense Variation</Typography>
+                        </Box>
+                        {lineGraphLoading ? (
+                            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Typography>Loading daily expenses...</Typography>
+                            </Box>
+                        ) : lineGraphError ? (
+                            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Typography color="error">{lineGraphError}</Typography>
+                            </Box>
+                        ) : dailyExpenses.length === 0 ? (
+                            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Typography color="text.secondary">
+                                    No expenses recorded for {months[selectedMonth - 1]} {selectedYear}
+                                </Typography>
+                            </Box>
+                        ) : (
+                            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Line data={lineChartData} options={lineChartOptions} />
+                            </Box>
+                        )}
+                    </Paper>
                 </Box>
-                
+
+                {/* Expense List - Full Width */}
+                <Paper sx={{ p: 2, height: '700px' }}>
+                    <Box sx={{ mb: 2, display: 'flex', gap: 1 }}>
+                        <Button
+                            variant="contained"
+                            onClick={() => setIsAddDialogOpen(true)}
+                        >
+                            Add Expense
+                        </Button>
+                        <Tooltip title="Download all expenses as Excel file">
+                            <Button
+                                variant="contained"
+                                color="secondary"
+                                onClick={() => api.exportExpenses()}
+                            >
+                                Export Data
+                            </Button>
+                        </Tooltip>
+                    </Box>
+                    <Box sx={{ height: 'calc(100% - 50px)', overflowY: 'auto' }}>
+                        <ExpenseList
+                            expenses={expenses}
+                            onSelectExpense={setSelectedExpense}
+                            selectedExpense={selectedExpense}
+                            onDeleteClick={handleDeleteClick}
+                        />
+                    </Box>
+                </Paper>
+
+                {/* Subscriptions Panel - Full Width */}
                 <Box sx={{ width: '100%' }}>
                     <SubscriptionsPanel ref={subscriptionsPanelRef} />
                 </Box>

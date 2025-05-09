@@ -14,6 +14,11 @@ from openpyxl import Workbook
 import tempfile
 import os
 from enum import Enum
+import pandas as pd
+import joblib
+
+# Load the ML model
+model = joblib.load('categoryFinder.pkl')
 
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
@@ -60,6 +65,7 @@ class ExpenseBase(BaseModel):
     category_id: int
     amount: float
     intention: IntentionType = IntentionType.NEED
+    name: str | None = None  # Make name optional with default None
 
     class Config:
         orm_mode = True
@@ -150,6 +156,17 @@ class Budget(BudgetBase):
 
     class Config:
         orm_mode = True
+
+class CategoryPredictionRequest(BaseModel):
+    name: str
+
+@app.post("/predict-category")
+def predict_category(request: CategoryPredictionRequest):
+    try:
+        predicted_category = model.predict([request.name])[0]
+        return {"category": predicted_category}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/expenses/", response_model=Expense)
 def create_expense(expense: ExpenseCreate, db: Session = Depends(get_db)):
@@ -278,7 +295,7 @@ def export_expenses(db: Session = Depends(get_db)):
     ws.title = "Expenses_"+str(date.today())
     
     # Add headers
-    headers = ["ID", "Date", "Category", "Amount", "Intention"]
+    headers = ["ID", "Date", "Category", "Amount", "Intention", "Name"]
     for col, header in enumerate(headers, 1):
         ws.cell(row=1, column=col, value=header)
     
@@ -289,6 +306,7 @@ def export_expenses(db: Session = Depends(get_db)):
         ws.cell(row=row, column=3, value=CATEGORIES[expense.category_id])
         ws.cell(row=row, column=4, value=expense.amount)
         ws.cell(row=row, column=5, value=expense.intention)
+        ws.cell(row=row, column=6, value=expense.name)
     
     # Create a temporary file
     with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp:

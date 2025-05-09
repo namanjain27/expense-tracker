@@ -7,6 +7,7 @@ export interface Expense {
     category: string;
     amount: number;
     intention: IntentionType;
+    name: string;
 }
 
 export interface CategoryTotal {

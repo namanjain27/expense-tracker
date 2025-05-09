@@ -12,6 +12,7 @@ class Expense(Base):
     category_id = Column(Integer, nullable=False)
     amount = Column(Float, nullable=False)
     intention = Column(String, default="Need")
+    name = Column(String, nullable=True)
 
 class RecurringExpense(Base):
     __tablename__ = "recurring_expenses"

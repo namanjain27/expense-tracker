@@ -26,9 +26,10 @@ ChartJS.register(
 interface BudgetComparisonProps {
     selectedMonth: number;
     selectedYear: number;
+    refreshTrigger?: number;
 }
 
-const BudgetComparison: React.FC<BudgetComparisonProps> = ({ selectedMonth, selectedYear }) => {
+const BudgetComparison: React.FC<BudgetComparisonProps> = ({ selectedMonth, selectedYear, refreshTrigger = 0 }) => {
     const [budget, setBudget] = useState<Budget | null>(null);
     const [expenses, setExpenses] = useState<TotalExpenses | null>(null);
     const [loading, setLoading] = useState(true);
@@ -64,7 +65,7 @@ const BudgetComparison: React.FC<BudgetComparisonProps> = ({ selectedMonth, sele
         };
 
         fetchData();
-    }, [selectedMonth, selectedYear]);
+    }, [selectedMonth, selectedYear, refreshTrigger]);
 
     const getColorForPercentage = (percentage: number) => {
         if (percentage <= 50) {
