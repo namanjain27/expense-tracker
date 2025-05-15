@@ -188,7 +188,7 @@ const BudgetDialog: React.FC<BudgetDialogProps> = ({
                                 No budget found for {months[selectedMonth - 1]} {selectedYear}. Please set your budget below.
                             </Alert>
                         )}
-                        <Box sx={{ mb: 3 }}>
+                        <Box sx={{ mb: 2 }}>
                             <Grid container spacing={2}>
                                 <Grid item xs={12} sm={6}>
                                     <TextField

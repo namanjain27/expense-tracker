@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
     Dialog,
     DialogTitle,
@@ -13,10 +13,18 @@ import {
     RadioGroup,
     Radio,
     FormControl,
-    FormLabel
+    FormLabel,
+    InputLabel,
+    Select,
+    Typography,
+    useTheme
 } from '@mui/material';
 import { Expense, CATEGORIES, IntentionType } from '../types/expense';
 import AddSubscriptionDialog from './AddSubscriptionDialog';
+import { ThemeContext } from './Dashboard';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 
 interface AddExpenseDialogProps {
     open: boolean;
@@ -26,6 +34,8 @@ interface AddExpenseDialogProps {
 }
 
 const AddExpenseDialog: React.FC<AddExpenseDialogProps> = ({ open, onClose, onAdd, onSubscriptionSuccess }) => {
+    const theme = useTheme();
+    const { isDarkMode } = useContext(ThemeContext);
     const today = new Date();
     const formattedDate = today.getFullYear() + '-' + 
         String(today.getMonth() + 1).padStart(2, '0') + '-' + 
@@ -113,102 +123,161 @@ const AddExpenseDialog: React.FC<AddExpenseDialogProps> = ({ open, onClose, onAd
     };
 
     return (
-        <>
-            <Dialog open={open && !showSubscriptionDialog} onClose={handleClose} maxWidth="sm" fullWidth>
-                <DialogTitle>Add New Expense</DialogTitle>
-                <form onSubmit={handleSubmit}>
-                    <DialogContent>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                            <TextField
-                                label="Name"
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                helperText={isPredicting ? "Predicting category..." : ""}
-                            />
-                            <TextField
-                                label="Date"
-                                type="date"
-                                value={date}
-                                onChange={(e) => setDate(e.target.value)}
-                                InputLabelProps={{ shrink: true }}
-                                required
-                            />
-                            <TextField
-                                select
-                                label="Category (AI autofill)"
-                                value={categoryId}
-                                onChange={(e) => setCategoryId(parseInt(e.target.value))}
-                                required
-                            >
-                                {Object.entries(CATEGORIES).map(([id, name]) => (
-                                    <MenuItem key={id} value={id}>
-                                        {name}
-                                    </MenuItem>
-                                ))}
-                            </TextField>
-                            <TextField
-                                label="Amount"
-                                type="number"
-                                value={amount}
-                                onChange={(e) => setAmount(e.target.value)}
-                                required
-                                inputProps={{ step: "0.01", min: "0" }}
-                            />
-                            <FormControl component="fieldset">
-                                <FormLabel component="legend">Intention</FormLabel>
-                                <RadioGroup
-                                    row
-                                    value={intention}
-                                    onChange={(e) => setIntention(e.target.value as IntentionType)}
-                                >
-                                    <FormControlLabel value="Need" control={<Radio />} label="Need" />
-                                    <FormControlLabel value="Want" control={<Radio />} label="Want" />
-                                    <FormControlLabel value="Saving" control={<Radio />} label="Saving" />
-                                </RadioGroup>
-                            </FormControl>
-                            <FormControlLabel
-                                control={
-                                    <Checkbox
-                                        checked={isRecurring}
-                                        onChange={(e) => setIsRecurring(e.target.checked)}
-                                    />
+        <Dialog 
+            open={open} 
+            onClose={onClose}
+            maxWidth="sm"
+            fullWidth
+            PaperProps={{
+                sx: {
+                    backgroundColor: isDarkMode ? '#1e1e1e' : '#ffffff',
+                }
+            }}
+        >
+            <DialogTitle sx={{ 
+                color: isDarkMode ? '#ffffff' : undefined,
+                borderBottom: `1px solid ${isDarkMode ? '#333333' : '#e0e0e0'}`
+            }}>
+                Add New Expense
+            </DialogTitle>
+            <DialogContent sx={{ mt: 2 }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <TextField
+                        label="Name"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        fullWidth
+                        required
+                        sx={{
+                            '& .MuiInputLabel-root': {
+                                color: isDarkMode ? '#b0b0b0' : undefined
+                            },
+                            '& .MuiOutlinedInput-root': {
+                                '& fieldset': {
+                                    borderColor: isDarkMode ? '#333333' : undefined
+                                },
+                                '&:hover fieldset': {
+                                    borderColor: isDarkMode ? '#666666' : undefined
                                 }
-                                label="is this a recurring expense?"
-                            />
-                        </Box>
-                    </DialogContent>
-                    <DialogActions>
-                        <Button onClick={handleClose}>Cancel</Button>
-                        <Button 
-                            type="submit" 
-                            variant="contained"
-                            disabled={!date || !amount}
+                            }
+                        }}
+                    />
+                    <LocalizationProvider dateAdapter={AdapterDateFns}>
+                        <DatePicker
+                            label="Date"
+                            value={date}
+                            onChange={(newDate) => setDate(newDate)}
+                            sx={{
+                                '& .MuiInputLabel-root': {
+                                    color: isDarkMode ? '#b0b0b0' : undefined
+                                },
+                                '& .MuiOutlinedInput-root': {
+                                    '& fieldset': {
+                                        borderColor: isDarkMode ? '#333333' : undefined
+                                    },
+                                    '&:hover fieldset': {
+                                        borderColor: isDarkMode ? '#666666' : undefined
+                                    }
+                                }
+                            }}
+                        />
+                    </LocalizationProvider>
+                    <TextField
+                        label="Amount"
+                        type="number"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        fullWidth
+                        required
+                        InputProps={{
+                            startAdornment: <Typography sx={{ mr: 1, color: isDarkMode ? '#b0b0b0' : undefined }}>₹</Typography>
+                        }}
+                        sx={{
+                            '& .MuiInputLabel-root': {
+                                color: isDarkMode ? '#b0b0b0' : undefined
+                            },
+                            '& .MuiOutlinedInput-root': {
+                                '& fieldset': {
+                                    borderColor: isDarkMode ? '#333333' : undefined
+                                },
+                                '&:hover fieldset': {
+                                    borderColor: isDarkMode ? '#666666' : undefined
+                                }
+                            }
+                        }}
+                    />
+                    <FormControl fullWidth required>
+                        <InputLabel sx={{ color: isDarkMode ? '#b0b0b0' : undefined }}>Category</InputLabel>
+                        <Select
+                            value={categoryId}
+                            label="Category"
+                            onChange={(e) => setCategoryId(parseInt(e.target.value))}
+                            sx={{
+                                '& .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: isDarkMode ? '#333333' : undefined
+                                },
+                                '&:hover .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: isDarkMode ? '#666666' : undefined
+                                }
+                            }}
                         >
-                            Add
-                        </Button>
-                    </DialogActions>
-                </form>
-            </Dialog>
-
-            {showSubscriptionDialog && (
-                <AddSubscriptionDialog
-                    open={showSubscriptionDialog}
-                    onClose={() => setShowSubscriptionDialog(false)}
-                    onSuccess={handleSubscriptionSuccess}
-                    editData={null}
-                    initialData={{
-                        name: name || `${CATEGORIES[categoryId as keyof typeof CATEGORIES]} Subscription`,
-                        amount: parseFloat(amount),
-                        category_id: categoryId,
-                        intention,
-                        effective_date: date,
-                        subscription_period: { value: 1, unit: 'years' },
-                        billing_period: { value: 1, unit: 'months' },
-                        due_period: { value: 7, unit: 'days' }
-                    }}
-                />
-            )}
-        </>
+                            {Object.entries(CATEGORIES).map(([id, name]) => (
+                                <MenuItem key={id} value={id}>
+                                    {name}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                    <FormControl fullWidth required>
+                        <InputLabel sx={{ color: isDarkMode ? '#b0b0b0' : undefined }}>Intention</InputLabel>
+                        <Select
+                            value={intention}
+                            label="Intention"
+                            onChange={(e) => setIntention(e.target.value as IntentionType)}
+                            sx={{
+                                '& .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: isDarkMode ? '#333333' : undefined
+                                },
+                                '&:hover .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: isDarkMode ? '#666666' : undefined
+                                }
+                            }}
+                        >
+                            {['Need', 'Want', 'Saving'].map((int) => (
+                                <MenuItem key={int} value={int}>
+                                    {int}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                    <FormControlLabel
+                        control={
+                            <Checkbox
+                                checked={isRecurring}
+                                onChange={(e) => setIsRecurring(e.target.checked)}
+                            />
+                        }
+                        label="is this a recurring expense?"
+                    />
+                </Box>
+            </DialogContent>
+            <DialogActions sx={{ 
+                borderTop: `1px solid ${isDarkMode ? '#333333' : '#e0e0e0'}`,
+                p: 2
+            }}>
+                <Button onClick={onClose} color="inherit">
+                    Cancel
+                </Button>
+                <Button 
+                    onClick={handleSubmit} 
+                    variant="contained" 
+                    color="primary"
+                    disabled={!date || !amount}
+                >
+                    Add Expense
+                </Button>
+            </DialogActions>
+        </Dialog>
     );
 };
 

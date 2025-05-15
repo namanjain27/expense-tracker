@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import {
     Dialog,
     DialogTitle,
@@ -8,6 +8,7 @@ import {
     Typography
 } from '@mui/material';
 import { Expense } from '../types/expense';
+import { ThemeContext } from './Dashboard';
 
 interface DeleteExpenseDialogProps {
     open: boolean;
@@ -22,31 +23,42 @@ const DeleteExpenseDialog: React.FC<DeleteExpenseDialogProps> = ({
     onDelete,
     expense
 }) => {
-    const handleDelete = () => {
-        if (expense) {
-            onDelete(expense.id);
-        }
-    };
+    const { isDarkMode } = useContext(ThemeContext);
+
+    if (!expense) return null;
 
     return (
-        <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-            <DialogTitle>Delete Expense</DialogTitle>
-            <DialogContent>
-                {expense ? (
-                    <Typography>
-                        Are you sure you want to delete the expense of ₹{expense.amount.toFixed(2)} for {expense.category} on {expense.date}?
-                    </Typography>
-                ) : (
-                    <Typography>Please select an expense to delete.</Typography>
-                )}
+        <Dialog 
+            open={open} 
+            onClose={onClose}
+            PaperProps={{
+                sx: {
+                    backgroundColor: isDarkMode ? '#1e1e1e' : '#ffffff',
+                }
+            }}
+        >
+            <DialogTitle sx={{ 
+                color: isDarkMode ? '#ffffff' : undefined,
+                borderBottom: `1px solid ${isDarkMode ? '#333333' : '#e0e0e0'}`
+            }}>
+                Delete Expense
+            </DialogTitle>
+            <DialogContent sx={{ mt: 2 }}>
+                <Typography sx={{ color: isDarkMode ? '#ffffff' : undefined }}>
+                    Are you sure you want to delete the expense "{expense.name}"?
+                </Typography>
             </DialogContent>
-            <DialogActions>
-                <Button onClick={onClose}>Cancel</Button>
-                <Button
-                    onClick={handleDelete}
+            <DialogActions sx={{ 
+                borderTop: `1px solid ${isDarkMode ? '#333333' : '#e0e0e0'}`,
+                p: 2
+            }}>
+                <Button onClick={onClose} color="inherit">
+                    Cancel
+                </Button>
+                <Button 
+                    onClick={() => onDelete(expense.id)} 
+                    variant="contained" 
                     color="error"
-                    variant="contained"
-                    disabled={!expense}
                 >
                     Delete
                 </Button>
