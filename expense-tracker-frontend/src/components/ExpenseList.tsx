@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo, useContext } from 'react';
 import {
     Table,
     TableBody,
@@ -10,10 +10,16 @@ import {
     Typography,
     IconButton,
     Tooltip,
-    Box
+    Box,
+    TableSortLabel,
+    useTheme
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { Expense } from '../types/expense';
+import { ThemeContext } from './Dashboard';
+
+type SortField = 'date' | 'category' | 'intention' | 'amount';
+type SortOrder = 'asc' | 'desc' | 'group';
 
 interface ExpenseListProps {
     expenses: Expense[];
@@ -28,6 +34,71 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
     selectedExpense,
     onDeleteClick 
 }) => {
+    const theme = useTheme();
+    const { isDarkMode } = useContext(ThemeContext);
+    const [sortField, setSortField] = useState<SortField>('date');
+    const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+
+    const handleSort = (field: SortField) => {
+        if (field === sortField) {
+            // Cycle through sort orders
+            if (field === 'category' || field === 'intention') {
+                setSortOrder(sortOrder === 'asc' ? 'group' : 'asc');
+            } else {
+                setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+            }
+        } else {
+            setSortField(field);
+            setSortOrder(field === 'category' || field === 'intention' ? 'group' : 'desc');
+        }
+    };
+
+    const sortedExpenses = useMemo(() => {
+        let sorted = [...expenses];
+
+        if (sortOrder === 'group' && (sortField === 'category' || sortField === 'intention')) {
+            // Group by the selected field
+            const groups = sorted.reduce((acc, expense) => {
+                const key = expense[sortField];
+                if (!acc[key]) {
+                    acc[key] = [];
+                }
+                acc[key].push(expense);
+                return acc;
+            }, {} as Record<string, Expense[]>);
+
+            // Sort groups by key
+            const sortedGroups = Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
+            sorted = sortedGroups.flatMap(([_, group]) => group);
+        } else {
+            // Regular sorting
+            sorted.sort((a, b) => {
+                let comparison = 0;
+                switch (sortField) {
+                    case 'date':
+                        comparison = new Date(a.date).getTime() - new Date(b.date).getTime();
+                        break;
+                    case 'amount':
+                        comparison = a.amount - b.amount;
+                        break;
+                    case 'category':
+                    case 'intention':
+                        comparison = a[sortField].localeCompare(b[sortField]);
+                        break;
+                }
+                return sortOrder === 'asc' ? comparison : -comparison;
+            });
+        }
+
+        return sorted;
+    }, [expenses, sortField, sortOrder]);
+
+    const getSortLabel = (field: SortField) => {
+        if (field !== sortField) return 'Sort';
+        if (sortOrder === 'group') return 'Grouped';
+        return sortOrder === 'asc' ? 'Ascending' : 'Descending';
+    };
+
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             <Typography variant="h6" gutterBottom>
@@ -37,20 +108,21 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
                 component={Paper} 
                 sx={{ 
                     flex: 1,
-                    maxHeight: '1125px', // This will show approximately 10 rows
+                    maxHeight: '1125px',
                     overflow: 'auto',
+                    backgroundColor: isDarkMode ? '#1e1e1e' : '#ffffff',
                     '&::-webkit-scrollbar': {
                         width: '8px',
                     },
                     '&::-webkit-scrollbar-track': {
-                        background: '#f1f1f1',
+                        background: isDarkMode ? '#2d2d2d' : '#f1f1f1',
                         borderRadius: '4px',
                     },
                     '&::-webkit-scrollbar-thumb': {
-                        background: '#888',
+                        background: isDarkMode ? '#555' : '#888',
                         borderRadius: '4px',
                         '&:hover': {
-                            background: '#555',
+                            background: isDarkMode ? '#666' : '#555',
                         },
                     },
                 }}
@@ -58,43 +130,100 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
                 <Table stickyHeader>
                     <TableHead>
                         <TableRow>
-                            <TableCell>Date</TableCell>
-                            <TableCell>Name</TableCell>
-                            <TableCell>Category</TableCell>
-                            <TableCell>Intention</TableCell>
-                            <TableCell align="right">Amount</TableCell>
-                            <TableCell align="center">Actions</TableCell>
+                            <TableCell sx={{ backgroundColor: isDarkMode ? '#2d2d2d' : undefined }}>
+                                <TableSortLabel
+                                    active={sortField === 'date'}
+                                    direction={sortOrder === 'desc' ? 'desc' : 'asc'}
+                                    onClick={() => handleSort('date')}
+                                >
+                                    Date
+                                </TableSortLabel>
+                            </TableCell>
+                            <TableCell sx={{ backgroundColor: isDarkMode ? '#2d2d2d' : undefined }}>Name</TableCell>
+                            <TableCell sx={{ backgroundColor: isDarkMode ? '#2d2d2d' : undefined }}>
+                                <TableSortLabel
+                                    active={sortField === 'category'}
+                                    direction={sortOrder === 'desc' ? 'desc' : 'asc'}
+                                    onClick={() => handleSort('category')}
+                                >
+                                    Category
+                                </TableSortLabel>
+                            </TableCell>
+                            <TableCell sx={{ backgroundColor: isDarkMode ? '#2d2d2d' : undefined }}>
+                                <TableSortLabel
+                                    active={sortField === 'intention'}
+                                    direction={sortOrder === 'desc' ? 'desc' : 'asc'}
+                                    onClick={() => handleSort('intention')}
+                                >
+                                    Intention
+                                </TableSortLabel>
+                            </TableCell>
+                            <TableCell align="right" sx={{ backgroundColor: isDarkMode ? '#2d2d2d' : undefined }}>
+                                <TableSortLabel
+                                    active={sortField === 'amount'}
+                                    direction={sortOrder === 'desc' ? 'desc' : 'asc'}
+                                    onClick={() => handleSort('amount')}
+                                >
+                                    Amount
+                                </TableSortLabel>
+                            </TableCell>
+                            <TableCell align="center" sx={{ backgroundColor: isDarkMode ? '#2d2d2d' : undefined }}>Actions</TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {expenses.map((expense) => (
-                            <TableRow
-                                key={expense.id}
-                                hover
-                                onClick={() => onSelectExpense(expense)}
-                                selected={selectedExpense?.id === expense.id}
-                                sx={{ cursor: 'pointer' }}
-                            >
-                                <TableCell>{expense.date}</TableCell>
-                                <TableCell>{expense.name}</TableCell>
-                                <TableCell>{expense.category}</TableCell>
-                                <TableCell>{expense.intention}</TableCell>
-                                <TableCell align="right">₹{expense.amount.toFixed(2)}</TableCell>
-                                <TableCell align="center">
-                                    <Tooltip title="Delete Expense">
-                                        <IconButton
-                                            size="small"
-                                            color="error"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                onDeleteClick(expense);
+                        {sortedExpenses.map((expense, index) => (
+                            <React.Fragment key={expense.id}>
+                                {((sortField === 'category' || sortField === 'intention') && 
+                                  sortOrder === 'group' && 
+                                  (index === 0 || expense[sortField] !== sortedExpenses[index - 1][sortField])) && (
+                                    <TableRow>
+                                        <TableCell 
+                                            colSpan={6} 
+                                            sx={{ 
+                                                backgroundColor: isDarkMode ? '#2d2d2d' : '#f5f5f5',
+                                                fontWeight: 'bold',
+                                                color: isDarkMode ? '#ffffff' : undefined
                                             }}
                                         >
-                                            <DeleteIcon />
-                                        </IconButton>
-                                    </Tooltip>
-                                </TableCell>
-                            </TableRow>
+                                            {expense[sortField]}
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                                <TableRow
+                                    hover
+                                    onClick={() => onSelectExpense(expense)}
+                                    selected={selectedExpense?.id === expense.id}
+                                    sx={{ 
+                                        cursor: 'pointer',
+                                        '&:hover': {
+                                            backgroundColor: isDarkMode ? '#2d2d2d' : undefined
+                                        },
+                                        '&.Mui-selected': {
+                                            backgroundColor: isDarkMode ? '#1a1a1a' : undefined
+                                        }
+                                    }}
+                                >
+                                    <TableCell>{expense.date}</TableCell>
+                                    <TableCell>{expense.name}</TableCell>
+                                    <TableCell>{expense.category}</TableCell>
+                                    <TableCell>{expense.intention}</TableCell>
+                                    <TableCell align="right">₹{expense.amount.toFixed(2)}</TableCell>
+                                    <TableCell align="center">
+                                        <Tooltip title="Delete Expense">
+                                            <IconButton
+                                                size="small"
+                                                color="error"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onDeleteClick(expense);
+                                                }}
+                                            >
+                                                <DeleteIcon />
+                                            </IconButton>
+                                        </Tooltip>
+                                    </TableCell>
+                                </TableRow>
+                            </React.Fragment>
                         ))}
                         {expenses.length === 0 && (
                             <TableRow>

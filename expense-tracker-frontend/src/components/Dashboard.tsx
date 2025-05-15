@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { Box, Button, Container, Paper, Typography, Tooltip, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import React, { useEffect, useState, useRef, createContext, useContext } from 'react';
+import { Box, Button, Container, Paper, Typography, Tooltip, FormControl, InputLabel, Select, MenuItem, IconButton } from '@mui/material';
 import { Doughnut, Line, Pie } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip as ChartTooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, Title } from 'chart.js';
 import { Expense, TotalExpenses } from '../types/expense';
@@ -11,10 +11,21 @@ import SubscriptionsPanel, { SubscriptionsPanelRef } from './SubscriptionsPanel'
 import BudgetDialog from './BudgetDialog';
 import BudgetComparison from './BudgetComparison';
 import { cyan } from '@mui/material/colors';
+import Brightness4Icon from '@mui/icons-material/Brightness4';
+import Brightness7Icon from '@mui/icons-material/Brightness7';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+
+// Create theme context
+export const ThemeContext = createContext({
+    isDarkMode: false,
+    toggleTheme: () => {},
+});
 
 ChartJS.register(ArcElement, ChartTooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, Title);
 
 const Dashboard: React.FC = () => {
+    const [isDarkMode, setIsDarkMode] = useState(false);
     const [expenses, setExpenses] = useState<Expense[]>([]);
     const [totals, setTotals] = useState<TotalExpenses | null>(null);
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -42,6 +53,40 @@ const Dashboard: React.FC = () => {
     const [lineGraphLoading, setLineGraphLoading] = useState(false);
     const [lineGraphError, setLineGraphError] = useState<string>('');
     const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+    const theme = createTheme({
+        palette: {
+            mode: isDarkMode ? 'dark' : 'light',
+            background: {
+                default: isDarkMode ? '#121212' : '#ffffff',
+                paper: isDarkMode ? '#1e1e1e' : '#ffffff',
+            },
+            text: {
+                primary: isDarkMode ? '#ffffff' : '#000000',
+                secondary: isDarkMode ? '#b0b0b0' : '#666666',
+            },
+        },
+        components: {
+            MuiPaper: {
+                styleOverrides: {
+                    root: {
+                        backgroundColor: isDarkMode ? '#1e1e1e' : '#ffffff',
+                    },
+                },
+            },
+            MuiTableCell: {
+                styleOverrides: {
+                    root: {
+                        borderColor: isDarkMode ? '#333333' : '#e0e0e0',
+                    },
+                },
+            },
+        },
+    });
+
+    const toggleTheme = () => {
+        setIsDarkMode(!isDarkMode);
+    };
 
     const fetchData = async () => {
         try {
@@ -301,210 +346,219 @@ const Dashboard: React.FC = () => {
     };
 
     return (
-        <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-            <Box sx={{ display: 'flex', mb: 3, gap: 3 }}>
-                <Typography variant="h4">
-                    Dashboard
-                </Typography>
-                <FormControl sx={{ minWidth: 120 }}>
-                        <InputLabel>Month</InputLabel>
-                        <Select
-                            value={selectedMonth}
-                            label="Month"
-                            onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                        >
-                            {months.map((month, index) => (
-                                <MenuItem key={month} value={index + 1}>
-                                    {month}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
-                    <FormControl sx={{ minWidth: 120 }}>
-                        <InputLabel>Year</InputLabel>
-                        <Select
-                            value={selectedYear}
-                            label="Year"
-                            onChange={(e) => setSelectedYear(Number(e.target.value))}
-                        >
-                            {years.map((year) => (
-                                <MenuItem key={year} value={year}>
-                                    {year}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
-                    <Button
-                        variant="contained"
-                        color="primary"
-                        onClick={() => setOpenBudgetDialog(true)}
-                    >
-                        {months[selectedMonth - 1]} - Budget
-                    </Button>
-            </Box>
-            <Box sx={{ display: 'flex', gap: 3, flexDirection: 'column' }}>
-                {/* 2x2 Grid for Charts */}
-                <Box sx={{ 
-                    display: 'grid', 
-                    gridTemplateColumns: 'repeat(2, 1fr)', 
-                    gap: 3 
-                }}>
-                    {/* Monthly Expenses Chart */}
-                    <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '400px' }}>
-                        <Box sx={{ mb: 2 }}>
-                            <Typography variant="h6">Monthly Expenses</Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', height: 'calc(100% - 60px)' }}>
-                            <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', maxHeight: '100%' }}>
-                                <Box sx={{ width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                    <Doughnut 
-                                        data={chartData}
-                                        options={{
-                                            ...chartOptions,
-                                            maintainAspectRatio: false
-                                        }}
-                                    />
-                                </Box>
-                            </Box>
-                            <Box sx={{ flex: 1, p: 2, overflowY: 'auto' }}>
-                                <Typography variant="h5">Total: ₹{totals?.overall_total.toFixed(2) || '0.00'}</Typography>
-                                {totals && Object.entries(totals.category_breakdown)
-                                    .sort((a, b) => b[1] - a[1])
-                                    .map(([category, amount]) => (
-                                        <Box key={category} sx={{ mt: 1 }}>
-                                            <Typography>
-                                                {category}: ₹{amount.toFixed(2)}
-                                            </Typography>
-                                        </Box>
-                                    ))}
-                            </Box>
-                        </Box>
-                    </Paper>
-
-                    {/* Budget Comparison Chart */}
-                    <BudgetComparison 
-                        selectedMonth={selectedMonth}
-                        selectedYear={selectedYear}
-                        refreshTrigger={refreshTrigger}
-                    />
-
-                    {/* Expense Intention Breakdown Chart */}
-                    <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '400px' }}>
-                        <Box sx={{ mb: 2 }}>
-                            <Typography variant="h6" sx={{ ml: 2 }}>
-                                Expense Intention Breakdown
-                            </Typography>
-                        </Box>
-                        <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                            <Box sx={{ width: '60%', height: '100%' }}>
-                                <Pie 
-                                    data={intentionChartData}
-                                    options={intentionChartOptions}
-                                />
-                            </Box>
-                        </Box>
-                    </Paper>
-
-                    {/* Daily Expense Variation Chart */}
-                    <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '400px' }}>
-                        <Box sx={{ mb: 2 }}>
-                            <Typography variant="h6">Daily Expense Variation</Typography>
-                        </Box>
-                        {lineGraphLoading ? (
-                            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <Typography>Loading daily expenses...</Typography>
-                            </Box>
-                        ) : lineGraphError ? (
-                            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <Typography color="error">{lineGraphError}</Typography>
-                            </Box>
-                        ) : dailyExpenses.length === 0 ? (
-                            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <Typography color="text.secondary">
-                                    No expenses recorded for {months[selectedMonth - 1]} {selectedYear}
-                                </Typography>
-                            </Box>
-                        ) : (
-                            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <Line data={lineChartData} options={lineChartOptions} />
-                            </Box>
-                        )}
-                    </Paper>
-                </Box>
-
-                {/* Expense List - Full Width */}
-                <Paper sx={{ p: 2, height: '700px' }}>
-                    <Box sx={{ mb: 2, display: 'flex', gap: 1 }}>
+        <ThemeContext.Provider value={{ isDarkMode, toggleTheme }}>
+            <ThemeProvider theme={theme}>
+                <CssBaseline />
+                <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+                    <Box sx={{ display: 'flex', mb: 3, gap: 3, alignItems: 'center' }}>
+                        <Typography variant="h4">
+                            Dashboard
+                        </Typography>
+                        <Box sx={{ flexGrow: 1 }} />
+                        <IconButton onClick={toggleTheme} color="inherit">
+                            {isDarkMode ? <Brightness7Icon /> : <Brightness4Icon />}
+                        </IconButton>
+                        <FormControl sx={{ minWidth: 120 }}>
+                            <InputLabel>Month</InputLabel>
+                            <Select
+                                value={selectedMonth}
+                                label="Month"
+                                onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                            >
+                                {months.map((month, index) => (
+                                    <MenuItem key={month} value={index + 1}>
+                                        {month}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                        <FormControl sx={{ minWidth: 120 }}>
+                            <InputLabel>Year</InputLabel>
+                            <Select
+                                value={selectedYear}
+                                label="Year"
+                                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                            >
+                                {years.map((year) => (
+                                    <MenuItem key={year} value={year}>
+                                        {year}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
                         <Button
                             variant="contained"
-                            onClick={() => setIsAddDialogOpen(true)}
+                            color="primary"
+                            onClick={() => setOpenBudgetDialog(true)}
                         >
-                            Add Expense
+                            {months[selectedMonth - 1]} - Budget
                         </Button>
-                        <Tooltip title="Download all expenses as Excel file">
-                            <Button
-                                variant="contained"
-                                color="secondary"
-                                onClick={() => api.exportExpenses()}
-                            >
-                                Export Data
-                            </Button>
-                        </Tooltip>
                     </Box>
-                    <Box sx={{ height: 'calc(100% - 50px)', overflowY: 'auto' }}>
-                        <ExpenseList
-                            expenses={expenses}
-                            onSelectExpense={setSelectedExpense}
-                            selectedExpense={selectedExpense}
-                            onDeleteClick={handleDeleteClick}
-                        />
+                    <Box sx={{ display: 'flex', gap: 3, flexDirection: 'column' }}>
+                        {/* 2x2 Grid for Charts */}
+                        <Box sx={{ 
+                            display: 'grid', 
+                            gridTemplateColumns: 'repeat(2, 1fr)', 
+                            gap: 3 
+                        }}>
+                            {/* Monthly Expenses Chart */}
+                            <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '400px' }}>
+                                <Box sx={{ mb: 2 }}>
+                                    <Typography variant="h6">Monthly Expenses</Typography>
+                                </Box>
+                                <Box sx={{ display: 'flex', height: 'calc(100% - 60px)' }}>
+                                    <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', maxHeight: '100%' }}>
+                                        <Box sx={{ width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                            <Doughnut 
+                                                data={chartData}
+                                                options={{
+                                                    ...chartOptions,
+                                                    maintainAspectRatio: false
+                                                }}
+                                            />
+                                        </Box>
+                                    </Box>
+                                    <Box sx={{ flex: 1, p: 2, overflowY: 'auto' }}>
+                                        <Typography variant="h5">Total: ₹{totals?.overall_total.toFixed(2) || '0.00'}</Typography>
+                                        {totals && Object.entries(totals.category_breakdown)
+                                            .sort((a, b) => b[1] - a[1])
+                                            .map(([category, amount]) => (
+                                                <Box key={category} sx={{ mt: 1 }}>
+                                                    <Typography>
+                                                        {category}: ₹{amount.toFixed(2)}
+                                                    </Typography>
+                                                </Box>
+                                            ))}
+                                    </Box>
+                                </Box>
+                            </Paper>
+
+                            {/* Budget Comparison Chart */}
+                            <BudgetComparison 
+                                selectedMonth={selectedMonth}
+                                selectedYear={selectedYear}
+                                refreshTrigger={refreshTrigger}
+                            />
+
+                            {/* Expense Intention Breakdown Chart */}
+                            <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '400px' }}>
+                                <Box sx={{ mb: 2 }}>
+                                    <Typography variant="h6" sx={{ ml: 2 }}>
+                                        Expense Intention Breakdown
+                                    </Typography>
+                                </Box>
+                                <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                    <Box sx={{ width: '60%', height: '100%' }}>
+                                        <Pie 
+                                            data={intentionChartData}
+                                            options={intentionChartOptions}
+                                        />
+                                    </Box>
+                                </Box>
+                            </Paper>
+
+                            {/* Daily Expense Variation Chart */}
+                            <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '400px' }}>
+                                <Box sx={{ mb: 2 }}>
+                                    <Typography variant="h6">Daily Expense Variation</Typography>
+                                </Box>
+                                {lineGraphLoading ? (
+                                    <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Typography>Loading daily expenses...</Typography>
+                                    </Box>
+                                ) : lineGraphError ? (
+                                    <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Typography color="error">{lineGraphError}</Typography>
+                                    </Box>
+                                ) : dailyExpenses.length === 0 ? (
+                                    <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Typography color="text.secondary">
+                                            No expenses recorded for {months[selectedMonth - 1]} {selectedYear}
+                                        </Typography>
+                                    </Box>
+                                ) : (
+                                    <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Line data={lineChartData} options={lineChartOptions} />
+                                    </Box>
+                                )}
+                            </Paper>
+                        </Box>
+
+                        {/* Expense List - Full Width */}
+                        <Paper sx={{ p: 2, height: '700px' }}>
+                            <Box sx={{ mb: 2, display: 'flex', gap: 1 }}>
+                                <Button
+                                    variant="contained"
+                                    onClick={() => setIsAddDialogOpen(true)}
+                                >
+                                    Add Expense
+                                </Button>
+                                <Tooltip title="Download all expenses as Excel file">
+                                    <Button
+                                        variant="contained"
+                                        color="secondary"
+                                        onClick={() => api.exportExpenses()}
+                                    >
+                                        Export Data
+                                    </Button>
+                                </Tooltip>
+                            </Box>
+                            <Box sx={{ height: 'calc(100% - 50px)', overflowY: 'auto' }}>
+                                <ExpenseList
+                                    expenses={expenses}
+                                    onSelectExpense={setSelectedExpense}
+                                    selectedExpense={selectedExpense}
+                                    onDeleteClick={handleDeleteClick}
+                                />
+                            </Box>
+                        </Paper>
+
+                        {/* Subscriptions Panel - Full Width */}
+                        <Box sx={{ width: '100%' }}>
+                            <SubscriptionsPanel ref={subscriptionsPanelRef} />
+                        </Box>
                     </Box>
-                </Paper>
 
-                {/* Subscriptions Panel - Full Width */}
-                <Box sx={{ width: '100%' }}>
-                    <SubscriptionsPanel ref={subscriptionsPanelRef} />
-                </Box>
-            </Box>
+                    <AddExpenseDialog
+                        open={isAddDialogOpen}
+                        onClose={() => setIsAddDialogOpen(false)}
+                        onAdd={handleAddExpense}
+                        onSubscriptionSuccess={() => subscriptionsPanelRef.current?.fetchSubscriptions()}
+                    />
 
-            <AddExpenseDialog
-                open={isAddDialogOpen}
-                onClose={() => setIsAddDialogOpen(false)}
-                onAdd={handleAddExpense}
-                onSubscriptionSuccess={() => subscriptionsPanelRef.current?.fetchSubscriptions()}
-            />
+                    <DeleteExpenseDialog
+                        open={isDeleteDialogOpen}
+                        onClose={() => setIsDeleteDialogOpen(false)}
+                        onDelete={handleDeleteExpense}
+                        expense={selectedExpense}
+                    />
 
-            <DeleteExpenseDialog
-                open={isDeleteDialogOpen}
-                onClose={() => setIsDeleteDialogOpen(false)}
-                onDelete={handleDeleteExpense}
-                expense={selectedExpense}
-            />
+                    <BudgetDialog
+                        open={openBudgetDialog}
+                        onClose={() => setOpenBudgetDialog(false)}
+                        onSuccess={fetchData}
+                        selectedMonth={selectedMonth}
+                        selectedYear={selectedYear}
+                    />
 
-            <BudgetDialog
-                open={openBudgetDialog}
-                onClose={() => setOpenBudgetDialog(false)}
-                onSuccess={fetchData}
-                selectedMonth={selectedMonth}
-                selectedYear={selectedYear}
-            />
-
-            <Box
-                sx={{
-                    mt: 4,
-                    bgcolor: '#D9D9D9',
-                    color: 'black',
-                    py: 1,
-                    textAlign: 'center',
-                    fontFamily: '"Playfair Display", serif',
-                    fontSize: '1.1rem',
-                    letterSpacing: '0.05em',
-                    boxShadow: '0 -2px 4px rgba(0,0,0,0.1)'
-                }}
-            >
-                Created By Naman Jain
-            </Box>
-        </Container>
+                    <Box
+                        sx={{
+                            mt: 4,
+                            bgcolor: '#D9D9D9',
+                            color: 'black',
+                            py: 1,
+                            textAlign: 'center',
+                            fontFamily: '"Playfair Display", serif',
+                            fontSize: '1.1rem',
+                            letterSpacing: '0.05em',
+                            boxShadow: '0 -2px 4px rgba(0,0,0,0.1)'
+                        }}
+                    >
+                        Created By Naman Jain
+                    </Box>
+                </Container>
+            </ThemeProvider>
+        </ThemeContext.Provider>
     );
 };
 
