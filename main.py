@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func
@@ -13,9 +13,11 @@ import openpyxl
 from openpyxl import Workbook
 import tempfile
 import os
+import shutil
 from enum import Enum
 import pandas as pd
 import joblib
+from statementExtractor import extract_transactions
 
 # Load the ML model
 model = joblib.load('categoryFinder.pkl')
@@ -40,7 +42,6 @@ app.add_middleware(
     allow_methods=["*"],  # Allow all HTTP methods (GET, POST, PUT, etc.)
     allow_headers=["*"]  # Allow all headers
 )
-
 # Category mapping
 CATEGORIES = {
     1: "Food",
@@ -125,6 +126,9 @@ class RecurringExpense(RecurringExpenseBase):
 class DueTomorrowResponse(BaseModel):
     message: str
 
+    # class importBankStatementResponse(BaseModel):
+
+
 class DueTomorrowListResponse(BaseModel):
     subscriptions: List[RecurringExpense]
 
@@ -167,6 +171,35 @@ def predict_category(request: CategoryPredictionRequest):
         return {"category": predicted_category}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+
+@app.post("/upload/")
+async def upload_file(file: UploadFile = File(...)):
+    if not file.filename.endswith((".xls", ".xlsx")):
+        raise HTTPException(status_code=400, detail="Only .xls or .xlsx files are allowed")
+    
+    temp_file_path = f"temp_uploads/{file.filename}"
+    os.makedirs("temp_uploads", exist_ok=True)
+    
+    with open(temp_file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    try:
+        data = extract_transactions(temp_file_path)
+        total_withdrawal = sum(item["Withdrawal"] for item in data)
+        total_deposit = sum(item["Deposit"] for item in data)
+        count = len(data)
+        net_monthly_expenditure = total_withdrawal-total_deposit
+    finally:
+        os.remove(temp_file_path)  # Clean up temp file
+
+    return {"data": data,
+            "total_amount_withdrawn": total_withdrawal,
+            "total_amount_deposited": total_deposit,
+            "net_monthly_expenditure": net_monthly_expenditure,
+            "total_transcations": count}
+
 
 @app.post("/expenses/", response_model=Expense)
 def create_expense(expense: ExpenseCreate, db: Session = Depends(get_db)):
