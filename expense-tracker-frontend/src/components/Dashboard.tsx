@@ -5,12 +5,12 @@ import { Chart as ChartJS, ArcElement, Tooltip as ChartTooltip, Legend, Category
 import { Expense, TotalExpenses } from '../types/expense';
 import { api, DailyExpense } from '../services/api';
 import AddExpenseDialog from './AddExpenseDialog';
+import ImportTransactions from './ImportTransactions';
 import DeleteExpenseDialog from './DeleteExpenseDialog';
 import ExpenseList from './ExpenseList';
 import SubscriptionsPanel, { SubscriptionsPanelRef } from './SubscriptionsPanel';
 import BudgetDialog from './BudgetDialog';
 import BudgetComparison from './BudgetComparison';
-import { cyan } from '@mui/material/colors';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
@@ -501,6 +501,16 @@ const Dashboard: React.FC = () => {
                                     >
                                         Export Data
                                     </Button>
+                                </Tooltip>
+                                <Tooltip title="Extract data from any bank statement in .xls or .xlsx">
+                                    {/* <Button
+                                        variant="contained"
+                                        color="success"
+                                        onClick={() => setImportFileOpen(true)}
+                                    >
+                                        Import Data
+                                    </Button> */}   
+                                    <ImportTransactions />
                                 </Tooltip>
                             </Box>
                             <Box sx={{ height: 'calc(100% - 50px)', overflowY: 'auto' }}>
