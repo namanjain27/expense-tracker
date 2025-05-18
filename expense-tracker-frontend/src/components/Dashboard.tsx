@@ -6,6 +6,7 @@ import { Expense, TotalExpenses } from '../types/expense';
 import { api, DailyExpense } from '../services/api';
 import AddExpenseDialog from './AddExpenseDialog';
 import ImportTransactions from './ImportTransactions';
+import TransactionSummaryDialog from './TransactionSummaryDialog'; 
 import DeleteExpenseDialog from './DeleteExpenseDialog';
 import ExpenseList from './ExpenseList';
 import SubscriptionsPanel, { SubscriptionsPanelRef } from './SubscriptionsPanel';
@@ -32,6 +33,8 @@ const Dashboard: React.FC = () => {
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
     const subscriptionsPanelRef = useRef<SubscriptionsPanelRef>(null);
+    const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false);
+    const [transactionData, setTransactionData] = useState<Transaction[]>([]);
     const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
     const [intentionData, setIntentionData] = useState<{
@@ -503,14 +506,12 @@ const Dashboard: React.FC = () => {
                                     </Button>
                                 </Tooltip>
                                 <Tooltip title="Extract data from any bank statement in .xls or .xlsx">
-                                    {/* <Button
+                                <Button
                                         variant="contained"
-                                        color="success"
-                                        onClick={() => setImportFileOpen(true)}
+                                        onClick={() => setIsTransactionDialogOpen(true)}
                                     >
-                                        Import Data
-                                    </Button> */}   
-                                    <ImportTransactions />
+                                        Import Transactions
+                                </Button>
                                 </Tooltip>
                             </Box>
                             <Box sx={{ height: 'calc(100% - 50px)', overflowY: 'auto' }}>
@@ -541,6 +542,12 @@ const Dashboard: React.FC = () => {
                         onClose={() => setIsDeleteDialogOpen(false)}
                         onDelete={handleDeleteExpense}
                         expense={selectedExpense}
+                    />
+
+                    <TransactionSummaryDialog
+                        open={isTransactionDialogOpen}
+                        onClose={() => setIsTransactionDialogOpen(false)}
+                        transactions={transactionData}
                     />
 
                     <BudgetDialog
