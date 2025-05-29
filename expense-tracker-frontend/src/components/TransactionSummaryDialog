@@ -1,70 +1,70 @@
-import React from 'react';
-import {
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    Button,
-    Typography,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    Paper
-} from '@mui/material';
+// import React from 'react';
+// import {
+//     Dialog,
+//     DialogTitle,
+//     DialogContent,
+//     DialogActions,
+//     Button,
+//     Typography,
+//     Table,
+//     TableBody,
+//     TableCell,
+//     TableContainer,
+//     TableHead,
+//     TableRow,
+//     Paper
+// } from '@mui/material';
 
-interface Transaction {
-    Date: string;
-    Description: string;
-    Withdrawal: number;
-    Deposit: number;
-}
+// interface Transaction {
+//     Date: string;
+//     Description: string;
+//     Withdrawal: number;
+//     Deposit: number;
+// }
 
-interface Props {
-    open: boolean;
-    onClose: () => void;
-    transactions: Transaction[];
-}
+// interface Props {
+//     open: boolean;
+//     onClose: () => void;
+//     transactions: Transaction[];
+// }
 
-const TransactionSummaryDialog: React.FC<Props> = ({ open, onClose, transactions }) => {
-    return (
-        <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-            <DialogTitle>Imported Transactions</DialogTitle>
-            <DialogContent>
-                {transactions.length === 0 ? (
-                    <Typography>No transactions found.</Typography>
-                ) : (
-                    <TableContainer component={Paper}>
-                        <Table>
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell>Date</TableCell>
-                                    <TableCell>Description</TableCell>
-                                    <TableCell>Withdrawal</TableCell>
-                                    <TableCell>Deposit</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {transactions.map((tx, index) => (
-                                    <TableRow key={index}>
-                                        <TableCell>{tx.Date}</TableCell>
-                                        <TableCell>{tx.Description}</TableCell>
-                                        <TableCell>{tx.Withdrawal || '-'}</TableCell>
-                                        <TableCell>{tx.Deposit || '-'}</TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </TableContainer>
-                )}
-            </DialogContent>
-            <DialogActions>
-                <Button onClick={onClose} variant="outlined">Close</Button>
-            </DialogActions>
-        </Dialog>
-    );
-};
+// const TransactionSummaryDialog: React.FC<Props> = ({ open, onClose, transactions }) => {
+//     return (
+//         <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+//             <DialogTitle>Imported Transactions</DialogTitle>
+//             <DialogContent>
+//                 {transactions.length === 0 ? (
+//                     <Typography>No transactions found.</Typography>
+//                 ) : (
+//                     <TableContainer component={Paper}>
+//                         <Table>
+//                             <TableHead>
+//                                 <TableRow>
+//                                     <TableCell>Date</TableCell>
+//                                     <TableCell>Description</TableCell>
+//                                     <TableCell>Withdrawal</TableCell>
+//                                     <TableCell>Deposit</TableCell>
+//                                 </TableRow>
+//                             </TableHead>
+//                             <TableBody>
+//                                 {transactions.map((tx, index) => (
+//                                     <TableRow key={index}>
+//                                         <TableCell>{tx.Date}</TableCell>
+//                                         <TableCell>{tx.Description}</TableCell>
+//                                         <TableCell>{tx.Withdrawal || '-'}</TableCell>
+//                                         <TableCell>{tx.Deposit || '-'}</TableCell>
+//                                     </TableRow>
+//                                 ))}
+//                             </TableBody>
+//                         </Table>
+//                     </TableContainer>
+//                 )}
+//             </DialogContent>
+//             <DialogActions>
+//                 <Button onClick={onClose} variant="outlined">Close</Button>
+//             </DialogActions>
+//         </Dialog>
+//     );
+// };
 
-export default TransactionSummaryDialog;
+// export default TransactionSummaryDialog;
