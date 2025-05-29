@@ -7,7 +7,7 @@ from datetime import date, timedelta, datetime
 from dateutil.relativedelta import relativedelta
 from database import get_db, engine
 import models
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 from fastapi.responses import FileResponse, JSONResponse
 import openpyxl
 from openpyxl import Workbook
@@ -67,6 +67,17 @@ class ExpenseBase(BaseModel):
     amount: float
     intention: IntentionType = IntentionType.NEED
     name: str | None = None  # Make name optional with default None
+    
+    @field_validator("date", mode="before")
+    def parse_datetime_to_date(cls, v):
+        if isinstance(v, str):
+            try:
+                return datetime.fromisoformat(v.replace("Z", "+00:00")).date()
+            except ValueError:
+                pass
+        elif isinstance(v, datetime):
+            return v.date()
+        return v
 
     class Config:
         orm_mode = True
@@ -92,7 +103,7 @@ class PeriodBase(BaseModel):
     value: int
     unit: PeriodUnit
 
-    @validator('value')
+    @field_validator('value')
     def validate_value(cls, v):
         if not 1 <= v <= 30:
             raise ValueError('Value must be between 1 and 30')
@@ -138,13 +149,13 @@ class BudgetBase(BaseModel):
     saving_goal: float
     category_budgets: Dict[str, float]
 
-    @validator('monthly_income', 'saving_goal')
+    @field_validator('monthly_income', 'saving_goal')
     def validate_amounts(cls, v):
         if v < 0:
             raise ValueError('Amount cannot be negative')
         return v
 
-    @validator('category_budgets')
+    @field_validator('category_budgets')
     def validate_category_budgets(cls, v):
         for category, amount in v.items():
             if amount < 0:

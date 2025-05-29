@@ -5,8 +5,8 @@ import { Chart as ChartJS, ArcElement, Tooltip as ChartTooltip, Legend, Category
 import { Expense, TotalExpenses } from '../types/expense';
 import { api, DailyExpense } from '../services/api';
 import AddExpenseDialog from './AddExpenseDialog';
-import ImportTransactions from './ImportTransactions';
-import TransactionSummaryDialog from './TransactionSummaryDialog'; 
+// import ImportTransactions from './ImportTransactions';
+// import TransactionSummaryDialog from './TransactionSummaryDialog'; 
 import DeleteExpenseDialog from './DeleteExpenseDialog';
 import ExpenseList from './ExpenseList';
 import SubscriptionsPanel, { SubscriptionsPanelRef } from './SubscriptionsPanel';
@@ -33,8 +33,8 @@ const Dashboard: React.FC = () => {
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
     const subscriptionsPanelRef = useRef<SubscriptionsPanelRef>(null);
-    const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false);
-    const [transactionData, setTransactionData] = useState<Transaction[]>([]);
+    // const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false);
+    // const [transactionData, setTransactionData] = useState<Transaction[]>([]);
     const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
     const [intentionData, setIntentionData] = useState<{
@@ -505,14 +505,14 @@ const Dashboard: React.FC = () => {
                                         Export Data
                                     </Button>
                                 </Tooltip>
-                                <Tooltip title="Extract data from any bank statement in .xls or .xlsx">
+                                {/* <Tooltip title="Extract data from any bank statement in .xls or .xlsx">
                                 <Button
                                         variant="contained"
                                         onClick={() => setIsTransactionDialogOpen(true)}
                                     >
                                         Import Transactions
                                 </Button>
-                                </Tooltip>
+                                </Tooltip> */}
                             </Box>
                             <Box sx={{ height: 'calc(100% - 50px)', overflowY: 'auto' }}>
                                 <ExpenseList
@@ -544,11 +544,11 @@ const Dashboard: React.FC = () => {
                         expense={selectedExpense}
                     />
 
-                    <TransactionSummaryDialog
+                    {/* <TransactionSummaryDialog
                         open={isTransactionDialogOpen}
                         onClose={() => setIsTransactionDialogOpen(false)}
                         transactions={transactionData}
-                    />
+                    /> */}
 
                     <BudgetDialog
                         open={openBudgetDialog}
