@@ -8,4 +8,5 @@ python-dateutil==2.8.2
 fuzzywuzzy
 xlrd
 pandas
+sklearn
 joblib
