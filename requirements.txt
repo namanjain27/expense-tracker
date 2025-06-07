@@ -9,4 +9,5 @@ fuzzywuzzy
 xlrd
 pandas
 scikit-learn
+python-multipart
 joblib
