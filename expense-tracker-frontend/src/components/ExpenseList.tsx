@@ -91,11 +91,11 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
         return sorted;
     }, [expenses, sortField, sortOrder]);
 
-    const getSortLabel = (field: SortField) => {
-        if (field !== sortField) return 'Sort';
-        if (sortOrder === 'group') return 'Grouped';
-        return sortOrder === 'asc' ? 'Ascending' : 'Descending';
-    };
+    // const getSortLabel = (field: SortField) => {
+    //     if (field !== sortField) return 'Sort';
+    //     if (sortOrder === 'group') return 'Grouped';
+    //     return sortOrder === 'asc' ? 'Ascending' : 'Descending';
+    // };
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>

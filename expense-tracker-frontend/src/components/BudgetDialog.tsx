@@ -8,8 +8,8 @@ import {
     TextField,
     Box,
     Typography,
-    Grid,
-    Alert
+    Alert,
+    Grid
 } from '@mui/material';
 import { api } from '../services/api';
 import { CATEGORIES } from '../types/expense';
@@ -189,58 +189,60 @@ const BudgetDialog: React.FC<BudgetDialogProps> = ({
                             </Alert>
                         )}
                         <Box sx={{ mb: 2 }}>
-                            <Grid container spacing={2}>
-                                <Grid item xs={12} sm={6}>
-                                    <TextField
-                                        label="Monthly Income"
-                                        type="number"
-                                        fullWidth
-                                        value={monthlyIncome}
-                                        onChange={(e) => setMonthlyIncome(e.target.value)}
-                                        required
-                                        InputProps={{
-                                            startAdornment: <Typography>₹</Typography>
-                                        }}
-                                    />
-                                </Grid>
-                                <Grid item xs={12} sm={6}>
-                                    <TextField
-                                        label="Monthly Saving Goal"
-                                        type="number"
-                                        fullWidth
-                                        value={savingGoal}
-                                        onChange={(e) => setSavingGoal(e.target.value)}
-                                        required
-                                        InputProps={{
-                                            startAdornment: <Typography>₹</Typography>
-                                        }}
-                                    />
-                                </Grid>
+                        <Grid container spacing={2} columns={12}>
+                            <Grid item xs={12 as 12} sm={6}>
+                                <TextField
+                                    label="Monthly Income"
+                                    type="number"
+                                    fullWidth
+                                    value={monthlyIncome}
+                                    onChange={(e) => setMonthlyIncome(e.target.value)}
+                                    required
+                                    InputProps={{
+                                        startAdornment: <Typography>₹</Typography>
+                                    }}
+                                />
                             </Grid>
-                        </Box>
+                            <Grid item xs={12 as 12} sm={6}>
+                                <TextField
+                                    label="Monthly Saving Goal"
+                                    type="number"
+                                    fullWidth
+                                    value={savingGoal}
+                                    onChange={(e) => setSavingGoal(e.target.value)}
+                                    required
+                                    InputProps={{
+                                        startAdornment: <Typography>₹</Typography>
+                                    }}
+                                />
+                            </Grid>
+                        </Grid>
+                    </Box>
+
 
                         <Typography variant="h6" gutterBottom>
                             Category Budgets
                         </Typography>
-                        <Grid container spacing={2}>
-                            {Object.values(CATEGORIES).map((category) => (
-                                <Grid item xs={12} sm={6} md={4} key={category}>
-                                    <TextField
-                                        label={category}
-                                        type="number"
-                                        fullWidth
-                                        value={categoryBudgets[category]}
-                                        onChange={(e) => handleCategoryBudgetChange(category, e.target.value)}
-                                        required
-                                        InputProps={{
-                                            startAdornment: <Typography>₹</Typography>
-                                        }}
-                                        error={!categoryBudgets[category] && error.includes(category)}
-                                        helperText={!categoryBudgets[category] && error.includes(category) ? 'Required' : ''}
-                                    />
-                                </Grid>
-                            ))}
-                        </Grid>
+                        <Grid container spacing={2} columns={12}>
+    {Object.values(CATEGORIES).map((category) => (
+        <Grid item xs={12} sm={6} md={4} key={category}>
+            <TextField
+                label={category}
+                type="number"
+                fullWidth
+                value={categoryBudgets[category]}
+                onChange={(e) => handleCategoryBudgetChange(category, e.target.value)}
+                required
+                InputProps={{
+                    startAdornment: <Typography>₹</Typography>
+                }}
+                error={!categoryBudgets[category] && error.includes(category)}
+                helperText={!categoryBudgets[category] && error.includes(category) ? 'Required' : ''}
+            />
+        </Grid>
+    ))}
+</Grid>
+
 
                         <Box sx={{ mt: 2, p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
                             <Typography variant="subtitle1">

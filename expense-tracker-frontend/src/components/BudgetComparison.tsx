@@ -33,7 +33,7 @@ const BudgetComparison: React.FC<BudgetComparisonProps> = ({ selectedMonth, sele
     const [budget, setBudget] = useState<Budget | null>(null);
     const [expenses, setExpenses] = useState<TotalExpenses | null>(null);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string>('');
+    // const [error, setError] = useState<string>('');
 
     const months = [
         'January', 'February', 'March', 'April', 'May', 'June',
@@ -44,7 +44,7 @@ const BudgetComparison: React.FC<BudgetComparisonProps> = ({ selectedMonth, sele
         const fetchData = async () => {
             try {
                 setLoading(true);
-                setError('');
+                // setError('');
                 const [budgetData, expensesData] = await Promise.all([
                     api.getLatestBudget(selectedMonth, selectedYear).catch(() => null),
                     api.getTotalExpenses(selectedMonth, selectedYear)
@@ -53,7 +53,7 @@ const BudgetComparison: React.FC<BudgetComparisonProps> = ({ selectedMonth, sele
                 setExpenses(expensesData);
             } catch (error) {
                 console.error('Error fetching comparison data:', error);
-                setError('Failed to load expenses data');
+                // setError('Failed to load expenses data');
             } finally {
                 setLoading(false);
             }
