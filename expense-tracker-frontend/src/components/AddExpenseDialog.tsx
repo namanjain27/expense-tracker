@@ -28,7 +28,7 @@ interface AddExpenseDialogProps {
     onSubscriptionSuccess?: () => void;
 }
 
-const AddExpenseDialog: React.FC<AddExpenseDialogProps> = ({ open, onClose, onAdd, onSubscriptionSuccess }) => {
+const AddExpenseDialog: React.FC<AddExpenseDialogProps> = ({ open, onClose, onAdd }) => {
     const { isDarkMode } = useContext(ThemeContext);
     const today = new Date();
     // const formattedDate = today.getFullYear() + '-' + 
@@ -43,15 +43,15 @@ const AddExpenseDialog: React.FC<AddExpenseDialogProps> = ({ open, onClose, onAd
     const [amount, setAmount] = useState('');
     const [intention, setIntention] = useState<IntentionType>('Need');
     const [isRecurring, setIsRecurring] = useState(false);
-    const [showSubscriptionDialog, setShowSubscriptionDialog] = useState(false);
+    // const [showSubscriptionDialog, setShowSubscriptionDialog] = useState(false);
     
-    const [isPredicting, setIsPredicting] = useState(false);
+    // const [isPredicting, setIsPredicting] = useState(false);
 
     // Add prediction effect
     useEffect(() => {
         const predictCategory = async () => {
             if (name.trim()) {
-                setIsPredicting(true);
+                // setIsPredicting(true);
                 try {
                     const response = await fetch('http://localhost:8000/predict-category', {
                         method: 'POST',
@@ -73,7 +73,7 @@ const AddExpenseDialog: React.FC<AddExpenseDialogProps> = ({ open, onClose, onAd
                 } catch (error) {
                     console.error('Error predicting category:', error);
                 }
-                setIsPredicting(false);
+                // setIsPredicting(false);
             }
         };
 
@@ -99,9 +99,7 @@ const AddExpenseDialog: React.FC<AddExpenseDialogProps> = ({ open, onClose, onAd
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (isRecurring) {
-            setShowSubscriptionDialog(true);
-        } else {
+        if (!isRecurring) {
             // onAdd({
             //     name,
             //     date,
@@ -120,19 +118,19 @@ const AddExpenseDialog: React.FC<AddExpenseDialogProps> = ({ open, onClose, onAd
         }
     };
 
-    const handleClose = () => {
-        resetForm();
-        onClose();
-    };
+    // const handleClose = () => {
+    //     resetForm();
+    //     onClose();
+    // };
 
-    const handleSubscriptionSuccess = () => {
-        setShowSubscriptionDialog(false);
-        resetForm();
-        onClose();
-        if (onSubscriptionSuccess) {
-            onSubscriptionSuccess();
-        }
-    };
+    // const handleSubscriptionSuccess = () => {
+    //     setShowSubscriptionDialog(false);
+    //     resetForm();
+    //     onClose();
+    //     if (onSubscriptionSuccess) {
+    //         onSubscriptionSuccess();
+    //     }
+    // };
 
     return (
         <Dialog 
