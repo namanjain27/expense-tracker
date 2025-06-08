@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Paper, Typography, FormControl, InputLabel, Select, MenuItem, Button } from '@mui/material';
+import { Box, Paper, Typography} from '@mui/material';
 import { Bar } from 'react-chartjs-2';
 import {
     Chart as ChartJS,
@@ -39,11 +39,6 @@ const BudgetComparison: React.FC<BudgetComparisonProps> = ({ selectedMonth, sele
         'January', 'February', 'March', 'April', 'May', 'June',
         'July', 'August', 'September', 'October', 'November', 'December'
     ];
-
-    const years = Array.from(
-        { length: 5 },
-        (_, i) => new Date().getFullYear() - i
-    );
 
     useEffect(() => {
         const fetchData = async () => {
@@ -208,7 +203,6 @@ const BudgetComparison: React.FC<BudgetComparisonProps> = ({ selectedMonth, sele
                                 const actualSavings = budget.monthly_income - (expenses?.overall_total || 0) + (expenses?.category_breakdown["Savings"] || 0);
                                 return `Actual: ₹${actualSavings.toFixed(2)} (${value.toFixed(1)}%)`;
                             }
-                            const budgetAmount = budget.category_budgets[category] || 0;
                             const actualAmount = expenses?.category_breakdown[category] || 0;
                             return `Actual: ₹${actualAmount.toFixed(2)} (${value.toFixed(1)}%)`;
                         }

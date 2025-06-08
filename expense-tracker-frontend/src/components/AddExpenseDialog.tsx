@@ -10,17 +10,12 @@ import {
     Box,
     FormControlLabel,
     Checkbox,
-    RadioGroup,
-    Radio,
     FormControl,
-    FormLabel,
     InputLabel,
     Select,
-    Typography,
-    useTheme
+    Typography
 } from '@mui/material';
 import { Expense, CATEGORIES, IntentionType } from '../types/expense';
-import AddSubscriptionDialog from './AddSubscriptionDialog';
 import { ThemeContext } from './Dashboard';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -34,19 +29,22 @@ interface AddExpenseDialogProps {
 }
 
 const AddExpenseDialog: React.FC<AddExpenseDialogProps> = ({ open, onClose, onAdd, onSubscriptionSuccess }) => {
-    const theme = useTheme();
     const { isDarkMode } = useContext(ThemeContext);
     const today = new Date();
-    const formattedDate = today.getFullYear() + '-' + 
-        String(today.getMonth() + 1).padStart(2, '0') + '-' + 
-        String(today.getDate()).padStart(2, '0');
+    // const formattedDate = today.getFullYear() + '-' + 
+    //     String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+    //     String(today.getDate()).padStart(2, '0');
     const [name, setName] = useState('');
-    const [date, setDate] = useState(formattedDate);
+    // const [date, setDate] = useState<Date | null>(new Date());
+    const [date, setDate] = useState<Date | null>(today);
+
+    // const [date, setDate] = useState(formattedDate);
     const [categoryId, setCategoryId] = useState<number>(1);
     const [amount, setAmount] = useState('');
     const [intention, setIntention] = useState<IntentionType>('Need');
     const [isRecurring, setIsRecurring] = useState(false);
     const [showSubscriptionDialog, setShowSubscriptionDialog] = useState(false);
+    
     const [isPredicting, setIsPredicting] = useState(false);
 
     // Add prediction effect
@@ -82,28 +80,42 @@ const AddExpenseDialog: React.FC<AddExpenseDialogProps> = ({ open, onClose, onAd
         const timeoutId = setTimeout(predictCategory, 500); // Debounce for 500ms
         return () => clearTimeout(timeoutId);
     }, [name]);
-
     const resetForm = () => {
         setName('');
-        setDate(formattedDate);
+        setDate(new Date()); // ← directly reset to today
         setCategoryId(1);
         setAmount('');
         setIntention('Need');
         setIsRecurring(false);
-    };
+      };
+    // const resetForm = () => {
+    //     setName('');
+    //     setDate(formattedDate);
+    //     setCategoryId(1);
+    //     setAmount('');
+    //     setIntention('Need');
+    //     setIsRecurring(false);
+    // };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (isRecurring) {
             setShowSubscriptionDialog(true);
         } else {
+            // onAdd({
+            //     name,
+            //     date,
+            //     category_id: categoryId,
+            //     amount: parseFloat(amount),
+            //     intention
+            // });
             onAdd({
                 name,
-                date,
+                date: date?.toISOString().split("T")[0] ?? "", // 'YYYY-MM-DD'
                 category_id: categoryId,
                 amount: parseFloat(amount),
                 intention
-            });
+              });
             resetForm();
         }
     };
@@ -182,6 +194,7 @@ const AddExpenseDialog: React.FC<AddExpenseDialogProps> = ({ open, onClose, onAd
                             }}
                         />
                     </LocalizationProvider>
+
                     <TextField
                         label="Amount"
                         type="number"
@@ -208,7 +221,7 @@ const AddExpenseDialog: React.FC<AddExpenseDialogProps> = ({ open, onClose, onAd
                     />
                     <FormControl fullWidth required>
                         <InputLabel sx={{ color: isDarkMode ? '#b0b0b0' : undefined }}>Category</InputLabel>
-                        <Select
+                        {/* <Select
                             value={categoryId}
                             label="Category"
                             onChange={(e) => setCategoryId(parseInt(e.target.value))}
@@ -226,7 +239,19 @@ const AddExpenseDialog: React.FC<AddExpenseDialogProps> = ({ open, onClose, onAd
                                     {name}
                                 </MenuItem>
                             ))}
+                        </Select> */}
+                        <Select
+                            value={categoryId}
+                            label="Category"
+                            onChange={(e) => setCategoryId(Number(e.target.value))} // Ensure number
+                            >
+                            {Object.entries(CATEGORIES).map(([id, name]) => (
+                                <MenuItem key={id} value={Number(id)}>
+                                {name}
+                                </MenuItem>
+                            ))}
                         </Select>
+
                     </FormControl>
                     <FormControl fullWidth required>
                         <InputLabel sx={{ color: isDarkMode ? '#b0b0b0' : undefined }}>Intention</InputLabel>
