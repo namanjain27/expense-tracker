@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, createContext, useContext } from 'react';
+import React, { useEffect, useState, useRef, createContext } from 'react';
 import { Box, Button, Container, Paper, Typography, Tooltip, FormControl, InputLabel, Select, MenuItem, IconButton } from '@mui/material';
 import { Doughnut, Line, Pie } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip as ChartTooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, Title } from 'chart.js';
@@ -45,13 +45,6 @@ const Dashboard: React.FC = () => {
         Saving_Untouched: number
     } | null>(null);
     const [openBudgetDialog, setOpenBudgetDialog] = useState(false);
-    const [currentMonth] = useState(() => {
-        const months = [
-            'January', 'February', 'March', 'April', 'May', 'June',
-            'July', 'August', 'September', 'October', 'November', 'December'
-        ];
-        return months[new Date().getMonth()];
-    });
     const [dailyExpenses, setDailyExpenses] = useState<DailyExpense[]>([]);
     const [lineGraphLoading, setLineGraphLoading] = useState(false);
     const [lineGraphError, setLineGraphError] = useState<string>('');

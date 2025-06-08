@@ -11,8 +11,7 @@ import {
     IconButton,
     Tooltip,
     Box,
-    TableSortLabel,
-    useTheme
+    TableSortLabel
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { Expense } from '../types/expense';
@@ -34,7 +33,6 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
     selectedExpense,
     onDeleteClick 
 }) => {
-    const theme = useTheme();
     const { isDarkMode } = useContext(ThemeContext);
     const [sortField, setSortField] = useState<SortField>('date');
     const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
