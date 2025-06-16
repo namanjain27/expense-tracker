@@ -87,7 +87,7 @@ const Dashboard: React.FC = () => {
     const fetchData = async () => {
         try {
             const [expensesData, totalsData] = await Promise.all([
-                api.getExpenses(),
+                api.getExpenses(selectedMonth, selectedYear),
                 api.getTotalExpenses(selectedMonth, selectedYear)
             ]);
             const sortedExpenses = expensesData.sort((a, b) => 

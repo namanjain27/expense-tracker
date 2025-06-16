@@ -116,7 +116,7 @@ const BudgetComparison: React.FC<BudgetComparisonProps> = ({ selectedMonth, sele
         }
 
         // Filter categories that have either budget or expenses
-        const categories = Object.keys(budget.category_budgets).filter(category => {
+        const categories = Object.keys(budget?.category_budgets || {}).filter(category => {
             const budgetAmount = budget.category_budgets[category] || 0;
             const expenseAmount = expenses.category_breakdown[category] || 0;
             return budgetAmount > 0 || expenseAmount > 0;

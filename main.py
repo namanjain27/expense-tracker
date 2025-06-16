@@ -270,8 +270,19 @@ def create_recurring_expense(expense: RecurringExpenseCreate, db: Session = Depe
     )
 
 @app.get("/expenses/", response_model=List[Expense])
-def read_expenses(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    expenses = db.query(models.Expense).offset(skip).limit(limit).all()
+def read_expenses(month: int = None, year: int = None, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    # If month and year are provided, filter expenses for that month
+    if month is not None and year is not None:
+        start_date = date(year, month, 1)
+        if month == 12:
+            end_date = date(year + 1, 1, 1)
+        else:
+            end_date = date(year, month + 1, 1)
+        
+    expenses = db.query(models.Expense).filter(
+        models.Expense.date >= start_date,
+        models.Expense.date < end_date
+    ).offset(skip).limit(limit).all()
     return [Expense(**expense.__dict__) for expense in expenses]
 
 @app.get("/expenses/total")
@@ -640,7 +651,7 @@ def get_latest_budget(month: int = None, year: int = None, db: Session = Depends
     
     budget = query.order_by(models.Budget.created_at.desc()).first()
     if not budget:
-        raise HTTPException(status_code=404, detail="No budget found")
+        raise HTTPException(status_code=200, detail="No budget found")
     
     # Convert category IDs to names
     response_budgets = {}

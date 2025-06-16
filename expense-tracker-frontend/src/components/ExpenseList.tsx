@@ -100,7 +100,7 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             <Typography variant="h6" gutterBottom>
-                Recent Expenses
+                Monthly Expenses
             </Typography>
             <TableContainer 
                 component={Paper} 

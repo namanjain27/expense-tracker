@@ -38,8 +38,11 @@ export interface DailyExpensesResponse {
 }
 
 export const api = {
-  getExpenses: async (): Promise<Expense[]> => {
-    const response = await axiosInstance.get(`/expenses/`);
+  getExpenses: async (month?: number, year?: number): Promise<Expense[]> => {
+    const params = new URLSearchParams();
+    if (month !== undefined) params.append('month', month.toString());
+    if (year !== undefined) params.append('year', year.toString());
+    const response = await axiosInstance.get(`/expenses/?${params.toString()}`);
     return response.data;
   },
 
