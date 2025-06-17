@@ -11,7 +11,8 @@ import {
     IconButton,
     Tooltip,
     Box,
-    TableSortLabel
+    TableSortLabel,
+    TextField
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { Expense } from '../types/expense';
@@ -36,6 +37,7 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
     const { isDarkMode } = useContext(ThemeContext);
     const [sortField, setSortField] = useState<SortField>('date');
     const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+    const [searchQuery, setSearchQuery] = useState('');
 
     const handleSort = (field: SortField) => {
         if (field === sortField) {
@@ -91,6 +93,16 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
         return sorted;
     }, [expenses, sortField, sortOrder]);
 
+    const filteredExpenses = useMemo(() => {
+        if (!searchQuery) return sortedExpenses;
+        return sortedExpenses.filter(expense => {
+            const name = expense.name || '';
+            const amount = expense.amount != null ? expense.amount.toString() : '';
+            return name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                   amount == searchQuery;
+        });
+    }, [sortedExpenses, searchQuery]);
+
     // const getSortLabel = (field: SortField) => {
     //     if (field !== sortField) return 'Sort';
     //     if (sortOrder === 'group') return 'Grouped';
@@ -99,9 +111,18 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-            <Typography variant="h6" gutterBottom>
-                Monthly Expenses
-            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="h6" gutterBottom>
+                    Monthly Expenses
+                </Typography>
+                <TextField
+                    label="Search name or amount of expense"
+                    variant="outlined"
+                    size="small"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                />
+            </Box>
             <TableContainer 
                 component={Paper} 
                 sx={{ 
@@ -169,11 +190,11 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {sortedExpenses.map((expense, index) => (
+                        {filteredExpenses.map((expense, index) => (
                             <React.Fragment key={expense.id}>
                                 {((sortField === 'category' || sortField === 'intention') && 
                                   sortOrder === 'group' && 
-                                  (index === 0 || expense[sortField] !== sortedExpenses[index - 1][sortField])) && (
+                                  (index === 0 || expense[sortField] !== filteredExpenses[index - 1][sortField])) && (
                                     <TableRow>
                                         <TableCell 
                                             colSpan={6} 
@@ -223,7 +244,7 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
                                 </TableRow>
                             </React.Fragment>
                         ))}
-                        {expenses.length === 0 && (
+                        {filteredExpenses.length === 0 && (
                             <TableRow>
                                 <TableCell colSpan={6} align="center">
                                     No expenses found
