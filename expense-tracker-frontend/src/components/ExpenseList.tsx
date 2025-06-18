@@ -118,6 +118,7 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
                 <TextField
                     label="Search name or amount of expense"
                     variant="outlined"
+                    sx={{ width: '350px' }}
                     size="small"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}

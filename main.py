@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, BackgroundTasks
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func
@@ -18,6 +18,14 @@ from enum import Enum
 import pandas as pd
 import joblib
 from statementExtractor import extract_transactions
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+import smtplib
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
 
 # Load the ML model
 model = joblib.load('categoryFinder.pkl')
@@ -765,3 +773,72 @@ def get_daily_expenses(month: int, year: int, db: Session = Depends(get_db)):
             for expense in daily_expenses
         ]
     }
+
+@app.post("/send-monthly-report")
+def send_monthly_report(background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    current_date = datetime.now()
+    month = current_date.month
+    year = current_date.year
+
+    # Check if budget exists for the month
+    budget = db.query(models.Budget).filter(
+        models.Budget.created_at >= datetime(year, month, 1),
+        models.Budget.created_at < datetime(year, month, 1) + relativedelta(months=1)
+    ).first()
+
+    if budget:
+        template_file = 'email_templates/monthly_report_template.html'
+    else:
+        template_file = 'email_templates/monthly_report_template_no_budget.html'
+
+    # Aggregate data
+    expenses = db.query(models.Expense).filter(
+        models.Expense.date >= datetime(year, month, 1),
+        models.Expense.date < datetime(year, month, 1) + relativedelta(months=1)
+    ).all()
+
+    total_spent = sum(expense.amount for expense in expenses)
+    total_saved = budget.monthly_income - total_spent if budget else 0
+    percent_change_expenses = "N/A"  # Placeholder for actual calculation
+    budget_used_percent = (total_spent / budget.monthly_income) * 100 if budget else 0
+    overspent_categories = []  # Placeholder for actual calculation
+    savings_goal_reached = total_saved >= budget.saving_goal if budget else False
+
+    # Read template
+    with open(template_file, 'r') as file:
+        email_body = file.read()
+
+    # Populate template
+    email_body = email_body.replace('{{Month}}', current_date.strftime('%B %Y'))
+    email_body = email_body.replace('{{total_spent}}', f"${total_spent:,.2f}")
+    email_body = email_body.replace('{{total_saved}}', f"${total_saved:,.2f}")
+    email_body = email_body.replace('{{percent_change_expenses}}', percent_change_expenses)
+    email_body = email_body.replace('{{budget_used_percent}}', f"{budget_used_percent:.2f}%")
+    email_body = email_body.replace('{{overspent_categories_names_comma_separated}}', ', '.join(overspent_categories))
+    email_body = email_body.replace('{{savings_goal_reached}}', str(savings_goal_reached))
+
+    # Send email
+    background_tasks.add_task(send_email, "jainnaman027@gmail.com", "TrackX - "+ current_date.strftime('%B %Y')+ " Monthly Report", email_body)
+    return {"message": "Monthly report is being sent."}
+
+def send_email(to_email: str, subject: str, body: str):
+    from_email = "jainnaman027@gmail.com"
+    password = os.getenv("smpt_email_pass")
+    print(os.getenv("smpt_email_pass"))
+
+    msg = MIMEMultipart()
+    msg['From'] = from_email
+    msg['To'] = to_email
+    msg['Subject'] = subject
+
+    msg.attach(MIMEText(body, 'html'))
+
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(from_email, password)
+        server.sendmail(from_email, to_email, msg.as_string())
+        server.quit()
+        print("Email sent successfully")
+    except Exception as e:
+        print(f"Failed to send email: {e}")
