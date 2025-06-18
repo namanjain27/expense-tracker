@@ -272,8 +272,8 @@ def create_recurring_expense(expense: RecurringExpenseCreate, db: Session = Depe
             unit=db_expense.billing_period_unit
         ),
         due_period=PeriodBase(
-            value=db_expense.due_period_value,
-            unit=db_expense.due_period_unit
+            value=db_expense.due_period_value or 1,
+            unit=db_expense.due_period_unit or "months"
         )
     )
 
@@ -799,10 +799,40 @@ def send_monthly_report(background_tasks: BackgroundTasks, db: Session = Depends
 
     total_spent = sum(expense.amount for expense in expenses)
     total_saved = budget.monthly_income - total_spent if budget else 0
-    percent_change_expenses = "N/A"  # Placeholder for actual calculation
+    
+    # Calculate percent change in expenses
+    last_month = month - 1 if month > 1 else 12
+    last_month_year = year if month > 1 else year - 1
+    past_expenses = db.query(models.Expense).filter(
+        models.Expense.date >= datetime(last_month_year, last_month, 1),
+        models.Expense.date < datetime(last_month_year, last_month, 1) + relativedelta(months=1)
+    ).all()
+
+    past_total_spent = sum(expense.amount for expense in past_expenses)
+    percent_change_expenses = ((total_spent - past_total_spent) / past_total_spent * 100) if past_total_spent > 0 else "N/A"
+
+    # Determine overspent categories
+    if budget:
+        category_expenses = db.query(models.Expense.category, func.sum(models.Expense.amount).label('total'))\
+            .filter(models.Expense.date >= datetime(year, month, 1),
+                    models.Expense.date < datetime(year, month, 1) + relativedelta(months=1))\
+            .group_by(models.Expense.category).all()
+
+        overspent_categories = [category for category, total in category_expenses if total > budget.get_category_budget(category)]
+
     budget_used_percent = (total_spent / budget.monthly_income) * 100 if budget else 0
-    overspent_categories = []  # Placeholder for actual calculation
     savings_goal_reached = total_saved >= budget.saving_goal if budget else False
+
+    # Calculate top 3 expenses
+    top_expenses = sorted(expenses, key=lambda x: x.amount, reverse=True)[:3]
+    top_expense_1 = top_expenses[0].name + " of amount " + str(top_expenses[0].amount) + " on " + top_expenses[0].date.strftime('%Y-%m-%d') if len(top_expenses) > 0 else "N/A"
+    top_expense_2 = top_expenses[1].name + " of amount " + str(top_expenses[1].amount) + " on " + top_expenses[1].date.strftime('%Y-%m-%d') if len(top_expenses) > 1 else "N/A"
+    top_expense_3 = top_expenses[2].name + " of amount " + str(top_expenses[2].amount) + " on " + top_expenses[2].date.strftime('%Y-%m-%d') if len(top_expenses) > 2 else "N/A"
+
+    # Generate URLs for charts (placeholder logic)
+    # budget_vs_actual_chart_url = generate_chart_url('budget_vs_actual')
+    # intention_breakdown_pie_url = generate_chart_url('intention_breakdown')
+    # daily_spend_line_chart_url = generate_chart_url('daily_spend')
 
     # Read template
     with open(template_file, 'r') as file:
@@ -812,10 +842,16 @@ def send_monthly_report(background_tasks: BackgroundTasks, db: Session = Depends
     email_body = email_body.replace('{{Month}}', current_date.strftime('%B %Y'))
     email_body = email_body.replace('{{total_spent}}', f"${total_spent:,.2f}")
     email_body = email_body.replace('{{total_saved}}', f"${total_saved:,.2f}")
-    email_body = email_body.replace('{{percent_change_expenses}}', percent_change_expenses)
+    email_body = email_body.replace('{{percent_change_expenses}}', str(percent_change_expenses))
     email_body = email_body.replace('{{budget_used_percent}}', f"{budget_used_percent:.2f}%")
     email_body = email_body.replace('{{overspent_categories_names_comma_separated}}', ', '.join(overspent_categories))
     email_body = email_body.replace('{{savings_goal_reached}}', str(savings_goal_reached))
+    email_body = email_body.replace('{{top_expense_1}}', top_expense_1)
+    email_body = email_body.replace('{{top_expense_2}}', top_expense_2)
+    email_body = email_body.replace('{{top_expense_3}}', top_expense_3)
+    email_body = email_body.replace('{{budget_vs_actual_chart_url}}', budget_vs_actual_chart_url)
+    email_body = email_body.replace('{{intention_breakdown_pie_url}}', intention_breakdown_pie_url)
+    email_body = email_body.replace('{{daily_spend_line_chart_url}}', daily_spend_line_chart_url)
 
     # Send email
     background_tasks.add_task(send_email, "jainnaman027@gmail.com", "TrackX - "+ current_date.strftime('%B %Y')+ " Monthly Report", email_body)
@@ -842,3 +878,4 @@ def send_email(to_email: str, subject: str, body: str):
         print("Email sent successfully")
     except Exception as e:
         print(f"Failed to send email: {e}")
+

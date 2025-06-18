@@ -16,6 +16,7 @@ import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
+import SavingGoalsPanel from './SavingGoalsPanel';
 
 // Create theme context
 export const ThemeContext = createContext({
@@ -520,6 +521,11 @@ const Dashboard: React.FC = () => {
                         {/* Subscriptions Panel - Full Width */}
                         <Box sx={{ width: '100%' }}>
                             <SubscriptionsPanel ref={subscriptionsPanelRef} />
+                        </Box>
+
+                        {/* Saving Goals Panel - Full Width */}
+                        <Box sx={{ width: '100%' }}>
+                            <SavingGoalsPanel />
                         </Box>
                     </Box>
 
