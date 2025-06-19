@@ -23,6 +23,9 @@ from email.mime.text import MIMEText
 import smtplib
 from dotenv import load_dotenv
 import os
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+import atexit
 
 load_dotenv()
 
@@ -774,88 +777,88 @@ def get_daily_expenses(month: int, year: int, db: Session = Depends(get_db)):
         ]
     }
 
-@app.post("/send-monthly-report")
-def send_monthly_report(background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    current_date = datetime.now()
-    month = current_date.month
-    year = current_date.year
+def _send_monthly_report_logic(db: Session, background_tasks: BackgroundTasks, year: int, month: int):
+    """
+    Contains the core logic for generating and sending the monthly report for a specific month and year.
+    """
+    report_date = datetime(year, month, 1)
+    start_date = datetime(year, month, 1)
+    end_date = start_date + relativedelta(months=1)
 
-    # Check if budget exists for the month
     budget = db.query(models.Budget).filter(
-        models.Budget.created_at >= datetime(year, month, 1),
-        models.Budget.created_at < datetime(year, month, 1) + relativedelta(months=1)
+        models.Budget.created_at >= start_date,
+        models.Budget.created_at < end_date
     ).first()
 
-    if budget:
-        template_file = 'email_templates/monthly_report_template.html'
-    else:
-        template_file = 'email_templates/monthly_report_template_no_budget.html'
+    template_file = 'email_templates/monthly_report_template.html' if budget else 'email_templates/monthly_report_template_no_budget.html'
 
-    # Aggregate data
     expenses = db.query(models.Expense).filter(
-        models.Expense.date >= datetime(year, month, 1),
-        models.Expense.date < datetime(year, month, 1) + relativedelta(months=1)
+        models.Expense.date >= start_date,
+        models.Expense.date < end_date
     ).all()
 
     total_spent = sum(expense.amount for expense in expenses)
-    total_saved = budget.monthly_income - total_spent if budget else 0
-    
-    # Calculate percent change in expenses
-    last_month = month - 1 if month > 1 else 12
-    last_month_year = year if month > 1 else year - 1
-    past_expenses = db.query(models.Expense).filter(
-        models.Expense.date >= datetime(last_month_year, last_month, 1),
-        models.Expense.date < datetime(last_month_year, last_month, 1) + relativedelta(months=1)
-    ).all()
+    total_saved = (budget.monthly_income - total_spent) if budget else 0
 
+    last_month_start = start_date - relativedelta(months=1)
+    past_expenses = db.query(models.Expense).filter(
+        models.Expense.date >= last_month_start,
+        models.Expense.date < start_date
+    ).all()
     past_total_spent = sum(expense.amount for expense in past_expenses)
     percent_change_expenses = ((total_spent - past_total_spent) / past_total_spent * 100) if past_total_spent > 0 else "N/A"
 
-    # Determine overspent categories
-    if budget:
-        category_expenses = db.query(models.Expense.category, func.sum(models.Expense.amount).label('total'))\
-            .filter(models.Expense.date >= datetime(year, month, 1),
-                    models.Expense.date < datetime(year, month, 1) + relativedelta(months=1))\
-            .group_by(models.Expense.category).all()
+    overspent_categories = []
+    if budget and budget.category_budgets:
+        category_expenses_q = db.query(models.Expense.category_id, func.sum(models.Expense.amount).label('total'))\
+            .filter(models.Expense.date >= start_date, models.Expense.date < end_date)\
+            .group_by(models.Expense.category_id).all()
+        
+        category_expenses = {item.category_id: item.total for item in category_expenses_q}
 
-        overspent_categories = [category for category, total in category_expenses if total > budget.get_category_budget(category)]
-
-    budget_used_percent = (total_spent / budget.monthly_income) * 100 if budget else 0
+        for cat_id, total_spent_for_cat in category_expenses.items():
+            budget_for_cat = budget.category_budgets.get(str(cat_id))
+            if budget_for_cat and total_spent_for_cat > budget_for_cat:
+                overspent_categories.append(CATEGORIES[cat_id])
+    
+    budget_used_percent = (total_spent / budget.monthly_income * 100) if budget and budget.monthly_income > 0 else 0
     savings_goal_reached = total_saved >= budget.saving_goal if budget else False
 
-    # Calculate top 3 expenses
     top_expenses = sorted(expenses, key=lambda x: x.amount, reverse=True)[:3]
-    top_expense_1 = top_expenses[0].name + " of amount " + str(top_expenses[0].amount) + " on " + top_expenses[0].date.strftime('%Y-%m-%d') if len(top_expenses) > 0 else "N/A"
-    top_expense_2 = top_expenses[1].name + " of amount " + str(top_expenses[1].amount) + " on " + top_expenses[1].date.strftime('%Y-%m-%d') if len(top_expenses) > 1 else "N/A"
-    top_expense_3 = top_expenses[2].name + " of amount " + str(top_expenses[2].amount) + " on " + top_expenses[2].date.strftime('%Y-%m-%d') if len(top_expenses) > 2 else "N/A"
+    top_expense_1 = f"{top_expenses[0].name} of amount ₹{top_expenses[0].amount:,.2f} on {top_expenses[0].date.strftime('%Y-%m-%d')}" if len(top_expenses) > 0 else "N/A"
+    top_expense_2 = f"{top_expenses[1].name} of amount ₹{top_expenses[1].amount:,.2f} on {top_expenses[1].date.strftime('%Y-%m-%d')}" if len(top_expenses) > 1 else "N/A"
+    top_expense_3 = f"{top_expenses[2].name} of amount ₹{top_expenses[2].amount:,.2f} on {top_expenses[2].date.strftime('%Y-%m-%d')}" if len(top_expenses) > 2 else "N/A"
 
-    # Generate URLs for charts (placeholder logic)
-    # budget_vs_actual_chart_url = generate_chart_url('budget_vs_actual')
-    # intention_breakdown_pie_url = generate_chart_url('intention_breakdown')
-    # daily_spend_line_chart_url = generate_chart_url('daily_spend')
-
-    # Read template
     with open(template_file, 'r') as file:
         email_body = file.read()
 
-    # Populate template
-    email_body = email_body.replace('{{Month}}', current_date.strftime('%B %Y'))
-    email_body = email_body.replace('{{total_spent}}', f"${total_spent:,.2f}")
-    email_body = email_body.replace('{{total_saved}}', f"${total_saved:,.2f}")
-    email_body = email_body.replace('{{percent_change_expenses}}', str(percent_change_expenses))
+    email_body = email_body.replace('{{Month}}', report_date.strftime('%B %Y'))
+    email_body = email_body.replace('{{total_spent}}', f"₹{total_spent:,.2f}")
+    email_body = email_body.replace('{{total_saved}}', f"₹{total_saved:,.2f}")
+    email_body = email_body.replace('{{percent_change_expenses}}', f"{percent_change_expenses:.2f}%" if isinstance(percent_change_expenses, float) else "N/A")
     email_body = email_body.replace('{{budget_used_percent}}', f"{budget_used_percent:.2f}%")
-    email_body = email_body.replace('{{overspent_categories_names_comma_separated}}', ', '.join(overspent_categories))
-    email_body = email_body.replace('{{savings_goal_reached}}', str(savings_goal_reached))
+    email_body = email_body.replace('{{overspent_categories_names_comma_separated}}', ', '.join(overspent_categories) if overspent_categories else "None")
+    email_body = email_body.replace('{{savings_goal_reached}}', "Yes" if savings_goal_reached else "No")
     email_body = email_body.replace('{{top_expense_1}}', top_expense_1)
     email_body = email_body.replace('{{top_expense_2}}', top_expense_2)
     email_body = email_body.replace('{{top_expense_3}}', top_expense_3)
-    email_body = email_body.replace('{{budget_vs_actual_chart_url}}', budget_vs_actual_chart_url)
-    email_body = email_body.replace('{{intention_breakdown_pie_url}}', intention_breakdown_pie_url)
-    email_body = email_body.replace('{{daily_spend_line_chart_url}}', daily_spend_line_chart_url)
+    email_body = email_body.replace('{{budget_vs_actual_chart_url}}', "")
+    email_body = email_body.replace('{{intention_breakdown_pie_url}}', "")
+    email_body = email_body.replace('{{daily_spend_line_chart_url}}', "")
 
-    # Send email
-    background_tasks.add_task(send_email, "jainnaman027@gmail.com", "TrackX - "+ current_date.strftime('%B %Y')+ " Monthly Report", email_body)
+    background_tasks.add_task(send_email, "jainnaman027@gmail.com", f"TrackX - {report_date.strftime('%B %Y')} Monthly Report", email_body)
     return {"message": "Monthly report is being sent."}
+
+
+@app.post("/send-monthly-report")
+def send_monthly_report(background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    today = date.today()
+    first_day_of_current_month = today.replace(day=1)
+    last_day_of_previous_month = first_day_of_current_month - timedelta(days=1)
+    year = last_day_of_previous_month.year
+    month = last_day_of_previous_month.month
+    
+    return _send_monthly_report_logic(db, background_tasks, year, month)
 
 def send_email(to_email: str, subject: str, body: str):
     from_email = "jainnaman027@gmail.com"
@@ -878,4 +881,103 @@ def send_email(to_email: str, subject: str, body: str):
         print("Email sent successfully")
     except Exception as e:
         print(f"Failed to send email: {e}")
+
+def scheduled_report_job():
+    """
+    Scheduled job to send monthly report if expenses were made in the previous month.
+    """
+    print("Scheduler: Running monthly report job check...")
+    db = next(get_db())
+    today = date.today()
+    first_day_of_current_month = today.replace(day=1)
+    last_day_of_previous_month = first_day_of_current_month - timedelta(days=1)
+    year = last_day_of_previous_month.year
+    month = last_day_of_previous_month.month
+
+    start_date = datetime(year, month, 1)
+    end_date = start_date + relativedelta(months=1)
+
+    expenses_count = db.query(models.Expense).filter(
+        models.Expense.date >= start_date,
+        models.Expense.date < end_date
+    ).count()
+
+    if expenses_count > 0:
+        print(f"Scheduler: Found {expenses_count} expenses for {month}/{year}. Sending report.")
+        background_tasks = BackgroundTasks()
+        _send_monthly_report_logic(db, background_tasks, year, month)
+    else:
+        print(f"Scheduler: No expenses found for {month}/{year}. Report not sent.")
+    db.close()
+
+scheduler = BackgroundScheduler(daemon=True)
+scheduler.add_job(scheduled_report_job, CronTrigger(day=19, hour=5, minute=45))
+scheduler.start()
+
+atexit.register(lambda: scheduler.shutdown())
+
+class SavingGoalBase(BaseModel):
+    name: str
+    target_date: date
+    target_amount: float
+    saved_amount: float = 0
+
+    class Config:
+        orm_mode = True
+
+class SavingGoalCreate(SavingGoalBase):
+    pass
+
+class SavingGoal(SavingGoalBase):
+    id: int
+
+class AddAmountRequest(BaseModel):
+    amount: float
+
+@app.post("/saving-goals/", response_model=SavingGoal)
+def create_saving_goal(goal: SavingGoalCreate, db: Session = Depends(get_db)):
+    db_goal = models.SavingGoal(**goal.dict())
+    db.add(db_goal)
+    db.commit()
+    db.refresh(db_goal)
+    return db_goal
+
+@app.get("/saving-goals/", response_model=List[SavingGoal])
+def get_saving_goals(db: Session = Depends(get_db)):
+    goals = db.query(models.SavingGoal).all()
+    return goals
+
+@app.put("/saving-goals/{goal_id}", response_model=SavingGoal)
+def update_saving_goal(goal_id: int, goal: SavingGoalCreate, db: Session = Depends(get_db)):
+    db_goal = db.query(models.SavingGoal).filter(models.SavingGoal.id == goal_id).first()
+    if not db_goal:
+        raise HTTPException(status_code=404, detail="Saving goal not found")
+    
+    for key, value in goal.dict().items():
+        setattr(db_goal, key, value)
+    
+    db.commit()
+    db.refresh(db_goal)
+    return db_goal
+
+@app.post("/saving-goals/{goal_id}/add-amount", response_model=SavingGoal)
+def add_amount_to_saving_goal(goal_id: int, request: AddAmountRequest, db: Session = Depends(get_db)):
+    db_goal = db.query(models.SavingGoal).filter(models.SavingGoal.id == goal_id).first()
+    if not db_goal:
+        raise HTTPException(status_code=404, detail="Saving goal not found")
+
+    db_goal.saved_amount += request.amount
+    db.commit()
+    db.refresh(db_goal)
+    return db_goal
+
+@app.delete("/saving-goals/{goal_id}")
+def delete_saving_goal(goal_id: int, db: Session = Depends(get_db)):
+    db_goal = db.query(models.SavingGoal).filter(models.SavingGoal.id == goal_id).first()
+    if not db_goal:
+        raise HTTPException(status_code=404, detail="Saving goal not found")
+
+    db.delete(db_goal)
+    db.commit()
+    return {"message": "Saving goal deleted successfully"}
 

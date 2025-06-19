@@ -37,4 +37,13 @@ class Budget(Base):
     monthly_income = Column(Float)
     saving_goal = Column(Float)
     category_budgets = Column(JSON)  # Stores category_id: amount mapping
-    created_at = Column(DateTime) 
+    created_at = Column(DateTime)
+
+class SavingGoal(Base):
+    __tablename__ = "saving_goals"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    target_date = Column(Date, nullable=False)
+    target_amount = Column(Float, nullable=False)
+    saved_amount = Column(Float, nullable=False, default=0) 

@@ -17,12 +17,12 @@ const AddSavingGoalDialog: React.FC<AddSavingGoalDialogProps> = ({ open, onClose
     const handleAdd = () => {
         const newGoal = {
             name,
-            targetAmount: parseFloat(targetAmount),
-            targetDate,
-            savedAmount: parseFloat(savedAmount) || 0,
+            target_amount: parseFloat(targetAmount),
+            target_date: targetDate,
+            saved_amount: parseFloat(savedAmount) || 0,
         };
 
-        if (newGoal.name && !isNaN(newGoal.targetAmount) && newGoal.targetDate) {
+        if (newGoal.name && !isNaN(newGoal.target_amount) && newGoal.target_date) {
             onAddGoal(newGoal);
             onClose();
             // Reset fields

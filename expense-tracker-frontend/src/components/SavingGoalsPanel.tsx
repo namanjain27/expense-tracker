@@ -1,43 +1,52 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Button, Paper, Typography } from '@mui/material';
-import { SavingGoal } from '../types/savingGoal';
+import { SavingGoal, SavingGoalCreate } from '../types/savingGoal';
 import SavingGoalCard from './SavingGoalCard';
 import AddSavingGoalDialog from './AddSavingGoalDialog';
-
-const initialGoals: SavingGoal[] = [
-    {
-        id: 1,
-        name: 'Japan Trip',
-        targetDate: '2025-09-15',
-        targetAmount: 150000,
-        savedAmount: 80000,
-    },
-    {
-        id: 2,
-        name: 'New Car',
-        targetDate: '2026-12-31',
-        targetAmount: 500000,
-        savedAmount: 120000,
-    },
-];
+import { api } from '../services/api';
 
 const SavingGoalsPanel: React.FC = () => {
-    const [goals, setGoals] = useState<SavingGoal[]>(initialGoals);
+    const [goals, setGoals] = useState<SavingGoal[]>([]);
     const [isAddGoalDialogOpen, setIsAddGoalDialogOpen] = useState(false);
 
-    const handleAddGoal = (newGoal: Omit<SavingGoal, 'id'>) => {
-        setGoals(prevGoals => [
-            ...prevGoals,
-            { ...newGoal, id: prevGoals.length > 0 ? Math.max(...prevGoals.map(g => g.id)) + 1 : 1 }
-        ]);
+    const fetchGoals = async () => {
+        try {
+            const fetchedGoals = await api.getSavingGoals();
+            setGoals(fetchedGoals);
+        } catch (error) {
+            console.error("Failed to fetch saving goals:", error);
+        }
     };
 
-    const handleAddAmount = (id: number, amount: number) => {
-        setGoals(prevGoals =>
-            prevGoals.map(goal =>
-                goal.id === id ? { ...goal, savedAmount: goal.savedAmount + amount } : goal
-            )
-        );
+    useEffect(() => {
+        fetchGoals();
+    }, []);
+
+    const handleAddGoal = async (newGoal: SavingGoalCreate) => {
+        try {
+            await api.createSavingGoal(newGoal);
+            fetchGoals(); // Refetch goals to display the new one
+        } catch (error) {
+            console.error("Failed to create saving goal:", error);
+        }
+    };
+
+    const handleAddAmount = async (id: number, amount: number) => {
+        try {
+            await api.addAmountToGoal(id, amount);
+            fetchGoals(); // Refetch goals to display updated progress
+        } catch (error) {
+            console.error("Failed to add amount to goal:", error);
+        }
+    };
+
+    const handleDeleteGoal = async (id: number) => {
+        try {
+            await api.deleteSavingGoal(id);
+            fetchGoals(); // Refetch goals to remove the deleted one
+        } catch (error) {
+            console.error("Failed to delete saving goal:", error);
+        }
     };
 
     return (
@@ -50,7 +59,7 @@ const SavingGoalsPanel: React.FC = () => {
             </Box>
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: 2 }}>
                 {goals.map(goal => (
-                    <SavingGoalCard key={goal.id} goal={goal} onAddAmount={handleAddAmount} />
+                    <SavingGoalCard key={goal.id} goal={goal} onAddAmount={handleAddAmount} onDelete={handleDeleteGoal} />
                 ))}
             </Box>
             <AddSavingGoalDialog

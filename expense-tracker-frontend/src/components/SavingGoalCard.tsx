@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { Paper, Typography, Box, LinearProgress, Button, TextField, Tooltip } from '@mui/material';
+import { Paper, Typography, Box, LinearProgress, Button, TextField, Tooltip, IconButton } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { SavingGoal } from '../types/savingGoal';
 
 interface SavingGoalCardProps {
     goal: SavingGoal;
     onAddAmount: (id: number, amount: number) => void;
+    onDelete: (id: number) => void;
 }
 
-const SavingGoalCard: React.FC<SavingGoalCardProps> = ({ goal, onAddAmount }) => {
+const SavingGoalCard: React.FC<SavingGoalCardProps> = ({ goal, onAddAmount, onDelete }) => {
     const [amountToAdd, setAmountToAdd] = useState('');
 
     const handleAddAmount = () => {
@@ -19,8 +21,8 @@ const SavingGoalCard: React.FC<SavingGoalCardProps> = ({ goal, onAddAmount }) =>
         }
     };
 
-    const progress = goal.targetAmount > 0 ? (goal.savedAmount / goal.targetAmount) * 100 : 0;
-    const remainingAmount = goal.targetAmount - goal.savedAmount;
+    const progress = goal.target_amount > 0 ? (goal.saved_amount / goal.target_amount) * 100 : 0;
+    const remainingAmount = goal.target_amount - goal.saved_amount;
     const amountToAddNumber = parseFloat(amountToAdd) || 0;
 
     const isExceeded = remainingAmount > 0 && amountToAddNumber > remainingAmount;
@@ -39,11 +41,16 @@ const SavingGoalCard: React.FC<SavingGoalCardProps> = ({ goal, onAddAmount }) =>
         <Paper elevation={3} sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="h6" sx={{ fontWeight: 'bold', textDecoration: 'underline' }}>{goal.name}</Typography>
-                <Typography variant="h6" sx={{ fontWeight: 'bold' }}>{`₹${goal.targetAmount.toLocaleString()}/-`}</Typography>
+                <Box>
+                    <Typography variant="h6" component="span" sx={{ fontWeight: 'bold', mr: 1 }}>{`₹${goal.target_amount.toLocaleString()}/-`}</Typography>
+                    <IconButton onClick={() => onDelete(goal.id)} size="small">
+                        <DeleteIcon />
+                    </IconButton>
+                </Box>
             </Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', color: 'text.secondary' }}>
-                <Typography variant="body2">Date - {new Date(goal.targetDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</Typography>
-                <Typography variant="body2">Saved - ₹{goal.savedAmount.toLocaleString()}</Typography>
+                <Typography variant="body2">Date - {new Date(goal.target_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</Typography>
+                <Typography variant="body2">Saved - ₹{goal.saved_amount.toLocaleString()}</Typography>
             </Box>
             <Box sx={{ width: '100%', mt: 1 }}>
                 <LinearProgress variant="determinate" value={progress} sx={{ height: 10, borderRadius: 5 }} />
