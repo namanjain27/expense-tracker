@@ -777,9 +777,10 @@ def get_daily_expenses(month: int, year: int, db: Session = Depends(get_db)):
         ]
     }
 
-def _send_monthly_report_logic(db: Session, background_tasks: BackgroundTasks, year: int, month: int):
+def _send_monthly_report_logic(db: Session, year: int, month: int):
     """
-    Contains the core logic for generating and sending the monthly report for a specific month and year.
+    Contains the core logic for generating the monthly report for a specific month and year.
+    Returns a dictionary with 'subject' and 'body' if a report is generated, otherwise None.
     """
     report_date = datetime(year, month, 1)
     start_date = datetime(year, month, 1)
@@ -813,14 +814,14 @@ def _send_monthly_report_logic(db: Session, background_tasks: BackgroundTasks, y
         category_expenses_q = db.query(models.Expense.category_id, func.sum(models.Expense.amount).label('total'))\
             .filter(models.Expense.date >= start_date, models.Expense.date < end_date)\
             .group_by(models.Expense.category_id).all()
-        
+
         category_expenses = {item.category_id: item.total for item in category_expenses_q}
 
         for cat_id, total_spent_for_cat in category_expenses.items():
             budget_for_cat = budget.category_budgets.get(str(cat_id))
             if budget_for_cat and total_spent_for_cat > budget_for_cat:
                 overspent_categories.append(CATEGORIES[cat_id])
-    
+
     budget_used_percent = (total_spent / budget.monthly_income * 100) if budget and budget.monthly_income > 0 else 0
     savings_goal_reached = total_saved >= budget.saving_goal if budget else False
 
@@ -846,8 +847,8 @@ def _send_monthly_report_logic(db: Session, background_tasks: BackgroundTasks, y
     email_body = email_body.replace('{{intention_breakdown_pie_url}}', "")
     email_body = email_body.replace('{{daily_spend_line_chart_url}}', "")
 
-    background_tasks.add_task(send_email, "jainnaman027@gmail.com", f"TrackX - {report_date.strftime('%B %Y')} Monthly Report", email_body)
-    return {"message": "Monthly report is being sent."}
+    subject = f"TrackX - {report_date.strftime('%B %Y')} Monthly Report"
+    return {"subject": subject, "body": email_body}
 
 
 @app.post("/send-monthly-report")
@@ -857,8 +858,14 @@ def send_monthly_report(background_tasks: BackgroundTasks, db: Session = Depends
     last_day_of_previous_month = first_day_of_current_month - timedelta(days=1)
     year = last_day_of_previous_month.year
     month = last_day_of_previous_month.month
+    print(f"Sending monthly report for {month}/{year}")
+
+    report_data = _send_monthly_report_logic(db, year, month)
+    if report_data:
+        background_tasks.add_task(send_email, "jainnaman027@gmail.com", report_data["subject"], report_data["body"])
+        return {"message": "Monthly report has been queued."}
     
-    return _send_monthly_report_logic(db, background_tasks, year, month)
+    return {"message": "No report was generated."}
 
 def send_email(to_email: str, subject: str, body: str):
     from_email = "jainnaman027@gmail.com"
@@ -904,14 +911,19 @@ def scheduled_report_job():
 
     if expenses_count > 0:
         print(f"Scheduler: Found {expenses_count} expenses for {month}/{year}. Sending report.")
-        background_tasks = BackgroundTasks()
-        _send_monthly_report_logic(db, background_tasks, year, month)
+        report_data = _send_monthly_report_logic(db, year, month)
+        if report_data:
+            try:
+                send_email("jainnaman027@gmail.com", report_data["subject"], report_data["body"])
+                print("Scheduler: Email sent successfully.")
+            except Exception as e:
+                print(f"Scheduler: Failed to send email: {e}")
     else:
         print(f"Scheduler: No expenses found for {month}/{year}. Report not sent.")
     db.close()
 
 scheduler = BackgroundScheduler(daemon=True)
-scheduler.add_job(scheduled_report_job, CronTrigger(day=19, hour=5, minute=45))
+scheduler.add_job(scheduled_report_job, CronTrigger(day=1, hour=6, minute=0))
 scheduler.start()
 
 atexit.register(lambda: scheduler.shutdown())
