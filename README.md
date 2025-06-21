@@ -7,14 +7,17 @@ This expense tracker app uses python (FastAPI and SQLite) backend and React (Vit
 1. Add and delete expenses
 2. Add, edit and delete subscriptions (recurring expense)
 3. UI focuses on showing one month data (latest by default) and lets user select the month and year
-4. Visualization charts
-5. set and edit monthly budget for each category, income and savings goal
-6. view expense list with sorting and search
-7. export all expense data in excel format
-8. Auto-category prediction from the expense name while adding expense
-9. Switch the UI in light and dark theme 
+4. Visualisation charts
+5. Set and edit monthly budget for each category, income and savings goal
+6. View expense list with sorting and search
+7. Export all expense data in Excel format
+8. Auto-category prediction from the expense name while adding the expense
+9. Switch the UI to light and dark theme
+10. Import and extract data from bank statements
+11. Monthly report automated mail with analysis and chart visuals
+12. Saving Goals to help you fly to your favourite foreign trip 
 
-## Visualization Charts
+## Visualisation Charts
 1. category-based expense pie-chart
 2. category-based budget vs actual expenses column-graph
 3. expense intention breakdown (need,want and savings) pie-chart
@@ -24,8 +27,9 @@ This expense tracker app uses python (FastAPI and SQLite) backend and React (Vit
 1. all the backend files exist in the same directory
 2. All the frontend files exist in the expense-tracker-frontend directory
 3. main.py contains all the API and there function implementation
-4. All the UI components are in expense-tracker-frontend\src\components
-5. all the api call from frontend are written in expense-tracker-frontend\src\services\api.ts
+4. The service folder contains helper functions for main APIs 
+5. All the UI components are in expense-tracker-frontend\src\components
+6. all the api call from frontend are written in expense-tracker-frontend\src\services\api.ts
 
 ## Frontend Setup
 1. Install dependencies
