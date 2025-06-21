@@ -1,10 +1,14 @@
-
-
+import os
+from datetime import datetime
+import xlrd
+import openpyxl
 from fuzzywuzzy import process
+import csv
+
 
 def match_column(possible_names, actual_columns):
     match, score = process.extractOne(possible_names, actual_columns)
-    return match if score > 60 else None
+    return match if score > 80 else None
 
 target_fields = {
     'date': ['date', 'transaction date', 'value date','Txn Date', 'Expense Date'],
@@ -13,83 +17,163 @@ target_fields = {
     'deposit': ['credit', 'deposit', 'amount deposited']
 }
 
-from datetime import datetime
-import xlrd
+def _to_float(value):
+    """Safely convert a value to a float, handling None, empty strings, and commas."""
+    if value is None:
+        return 0.0
+    
+    value_str = str(value).replace(',', '').strip()
+    if not value_str:
+        return 0.0
+    
+    try:
+        return float(value_str)
+    except ValueError:
+        return 0.0
+
+def _read_xls(filepath):
+    try:
+        book = xlrd.open_workbook(filepath)
+        sh = book.sheet_by_index(0)
+        data = []
+        for row_idx in range(sh.nrows):
+            row_values = []
+            for col_idx in range(sh.ncols):
+                cell_type = sh.cell_type(row_idx, col_idx)
+                cell_value = sh.cell_value(row_idx, col_idx)
+                if cell_type == xlrd.XL_CELL_DATE:
+                    dt_tuple = xlrd.xldate_as_tuple(cell_value, book.datemode)
+                    row_values.append(datetime(*dt_tuple))
+                else:
+                    row_values.append(cell_value)
+            data.append(row_values)
+        return data
+    except xlrd.biffh.XLRDError:
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                reader = csv.reader(f)
+                return [row for row in reader]
+        except Exception as e:
+            raise ValueError(f"File is not a valid .xls file and could not be read as CSV. Error: {e}")
+
+def _read_xlsx(filepath):
+    try:
+        book = openpyxl.load_workbook(filepath, data_only=True)
+        sh = book.active
+        return [[cell.value for cell in row] for row in sh.iter_rows()]
+    except Exception as e:
+        raise ValueError(f"Failed to read .xlsx file. Error: {e}")
+
 
 def extract_transactions(filepath):
+    filename, extension = os.path.splitext(filepath)
+    extension = extension.lower()
 
-    book = xlrd.open_workbook(filepath)
-    sh = book.sheet_by_index(0)
-    col_a = sh.col_values(0, start_rowx=0, end_rowx=None)
-    
+    if extension == '.xls':
+        data = _read_xls(filepath)
+    elif extension == '.xlsx':
+        data = _read_xlsx(filepath)
+    else:
+        raise ValueError(f"Unsupported file format: {extension}")
+
+    if not data:
+        return []
+
+    col_a = [row[0] if row else None for row in data]
 
     dateMatchRows = set()
-    for i in range(0,len(col_a)-1):
-        if col_a[i]:
+    for i, cell_value in enumerate(col_a):
+        if cell_value and isinstance(cell_value, str):
             for j in (target_fields['date']):
-                try:
-                    if(match_column(col_a[i], j)):
-                        dateMatchRows.add(i)
-                except (TypeError):
-                    pass
-    #matchedFields is field in sheet -> our field
+                if match_column(j, [cell_value]):
+                    dateMatchRows.add(i)
+                    break
+
     matchedFields = {}
-    headerRowNum = 0
-    if dateMatchRows:
-        # check that particular row contains other 3 cols or not and save them
-        for row in dateMatchRows:
-            # travel in this row - add in dict - if len(dict) == 4 then we found it!
-            col_array = sh.row_values(row, start_colx=0, end_colx=None)
-            for field, options in target_fields.items():
-                for option in options:
-                    match = match_column(option, col_array)
-                    if match:
-                        matchedFields[match] = field
-                        if(len(matchedFields)==4): headerRowNum = row
-                        break
-    if(not matchedFields):
-        print("Error: No Table Found!")
+    headerRowNum = -1
+    best_match_count = 0
+
+    for row_idx in dateMatchRows:
+        if row_idx >= len(data): continue
+        row_values_str = [str(v) if v is not None else '' for v in data[row_idx]]
+        current_matched_fields = {}
         
-    col_name_to_index = {name: i for i, name in enumerate(sh.row_values(headerRowNum))}
-    # Get column indices for our fields
+        for field, options in target_fields.items():
+            for option in options:
+                match = match_column(option, row_values_str)
+                if match and match not in current_matched_fields:
+                    current_matched_fields[match] = field
+                    break
+        
+        if len(current_matched_fields) > best_match_count:
+            best_match_count = len(current_matched_fields)
+            matchedFields = current_matched_fields
+            headerRowNum = row_idx
+        
+        if best_match_count == len(target_fields):
+            break
+
+    if headerRowNum == -1:
+        print("Error: Could not find a suitable header row.")
+        return []
+    
+    col_name_to_index = {str(name): i for i, name in enumerate(data[headerRowNum])}
     field_col_indices = {}
     for sheet_col_name, our_field in matchedFields.items():
         if sheet_col_name in col_name_to_index:
             field_col_indices[our_field] = col_name_to_index[sheet_col_name]
 
-    # Final structured list
     transactions = []
-    flag = True
 
-    for row_idx in range(headerRowNum + 1, sh.nrows):
-        row = sh.row_values(row_idx)
-        if not any(row):  # skip empty rows
+    for row_idx in range(headerRowNum + 1, len(data)):
+        row = data[row_idx]
+        if not any(row) or len(row) <= max(field_col_indices.values() or [0]):
             continue
 
         try:
             record = {}
 
-            # Date parsing (xlrd returns float for dates sometimes)
-            raw_date = row[field_col_indices['date']]
-            if(not row[field_col_indices['description']]): break
-            if(not str(raw_date)): break
-            if(str(raw_date)[0]=='*'):
-                if(flag): 
-                    flag = False
-                    continue
-            if isinstance(raw_date, float):
-                dt_tuple = xlrd.xldate_as_tuple(raw_date, sh.book.datemode)
-                record['Date'] = datetime(*dt_tuple).strftime('%Y-%m-%d')
+            date_col_idx = field_col_indices.get('date')
+            desc_col_idx = field_col_indices.get('description')
+            with_col_idx = field_col_indices.get('withdrawal')
+            dep_col_idx = field_col_indices.get('deposit')
+
+            if date_col_idx is None or desc_col_idx is None:
+                continue
+
+            raw_date = row[date_col_idx]
+            if not raw_date:
+                continue
+
+            date_str = str(raw_date).strip()
+            if not any(char.isdigit() for char in date_str):
+                print(f"Skipping row {row_idx} due to invalid date (no numerals): '{date_str}'")
+                continue
+
+            if not row[desc_col_idx]: 
+                continue
+            
+            if isinstance(raw_date, datetime):
+                record['Date'] = raw_date.strftime('%Y-%m-%d')
+            elif isinstance(raw_date, str):
+                try:
+                    record['Date'] = datetime.strptime(raw_date, '%d-%m-%Y').strftime('%Y-%m-%d')
+                except ValueError:
+                    record['Date'] = str(raw_date)
             else:
                 record['Date'] = str(raw_date)
 
-            record['Description'] = str(row[field_col_indices['description']]).strip()
-            record['Withdrawal'] = float(row[field_col_indices['withdrawal']] or 0)
-            record['Deposit'] = float(row[field_col_indices['deposit']] or 0)
+            record['Description'] = str(row[desc_col_idx]).strip()
+            
+            withdrawal_val = row[with_col_idx] if with_col_idx is not None else 0
+            deposit_val = row[dep_col_idx] if dep_col_idx is not None else 0
+            
+            record['Withdrawal'] = _to_float(withdrawal_val)
+            record['Deposit'] = _to_float(deposit_val)
 
             transactions.append(record)
-        except Exception as e:
+        except (ValueError, IndexError) as e:
             print(f"Skipping row {row_idx} due to error: {e}")
-            break
+            continue
 
     return transactions

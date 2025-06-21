@@ -1,5 +1,4 @@
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, BackgroundTasks
-from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func
@@ -9,7 +8,7 @@ from dateutil.relativedelta import relativedelta
 from database import get_db, engine
 import models
 from pydantic import BaseModel, field_validator
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse
 from openpyxl import Workbook
 import tempfile
 import os
@@ -25,7 +24,6 @@ import atexit
 from service.mail_service import _send_monthly_report_logic, send_email, scheduled_report_job
 load_dotenv()
 
-
 # Load the ML model
 model = joblib.load('categoryFinder.pkl')
 
@@ -34,7 +32,10 @@ models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
+scheduler = BackgroundScheduler(daemon=True)
+scheduler.add_job(scheduled_report_job, CronTrigger(day=1, hour=6, minute=0))
+scheduler.start()
+atexit.register(lambda: scheduler.shutdown())
 
 origins = [
     "http://localhost:5173",
@@ -792,10 +793,6 @@ def send_monthly_report(background_tasks: BackgroundTasks, db: Session = Depends
     
     return {"message": "No report was generated."}
 
-scheduler = BackgroundScheduler(daemon=True)
-scheduler.add_job(scheduled_report_job, CronTrigger(day=1, hour=6, minute=0))
-scheduler.start()
-atexit.register(lambda: scheduler.shutdown())
 
 class SavingGoalBase(BaseModel):
     name: str
