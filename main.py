@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, BackgroundTasks
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func
@@ -8,16 +8,21 @@ from dateutil.relativedelta import relativedelta
 from database import get_db, engine
 import models
 from pydantic import BaseModel, field_validator
-from fastapi.responses import FileResponse, JSONResponse
-import openpyxl
+from fastapi.responses import FileResponse
 from openpyxl import Workbook
 import tempfile
 import os
 import shutil
 from enum import Enum
-import pandas as pd
 import joblib
-from statementExtractor import extract_transactions
+from service.statementExtractor import extract_transactions
+from dotenv import load_dotenv
+import os
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+import atexit
+from service.mail_service import _send_monthly_report_logic, send_email, scheduled_report_job
+load_dotenv()
 
 # Load the ML model
 model = joblib.load('categoryFinder.pkl')
@@ -26,6 +31,11 @@ model = joblib.load('categoryFinder.pkl')
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
+
+scheduler = BackgroundScheduler(daemon=True)
+scheduler.add_job(scheduled_report_job, CronTrigger(day=1, hour=6, minute=0))
+scheduler.start()
+atexit.register(lambda: scheduler.shutdown())
 
 origins = [
     "http://localhost:5173",
@@ -264,14 +274,25 @@ def create_recurring_expense(expense: RecurringExpenseCreate, db: Session = Depe
             unit=db_expense.billing_period_unit
         ),
         due_period=PeriodBase(
-            value=db_expense.due_period_value,
-            unit=db_expense.due_period_unit
+            value=db_expense.due_period_value or 1,
+            unit=db_expense.due_period_unit or "months"
         )
     )
 
 @app.get("/expenses/", response_model=List[Expense])
-def read_expenses(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    expenses = db.query(models.Expense).offset(skip).limit(limit).all()
+def read_expenses(month: int = None, year: int = None, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    # If month and year are provided, filter expenses for that month
+    if month is not None and year is not None:
+        start_date = date(year, month, 1)
+        if month == 12:
+            end_date = date(year + 1, 1, 1)
+        else:
+            end_date = date(year, month + 1, 1)
+        
+    expenses = db.query(models.Expense).filter(
+        models.Expense.date >= start_date,
+        models.Expense.date < end_date
+    ).offset(skip).limit(limit).all()
     return [Expense(**expense.__dict__) for expense in expenses]
 
 @app.get("/expenses/total")
@@ -640,7 +661,7 @@ def get_latest_budget(month: int = None, year: int = None, db: Session = Depends
     
     budget = query.order_by(models.Budget.created_at.desc()).first()
     if not budget:
-        raise HTTPException(status_code=404, detail="No budget found")
+        raise HTTPException(status_code=200, detail="No budget found")
     
     # Convert category IDs to names
     response_budgets = {}
@@ -754,3 +775,87 @@ def get_daily_expenses(month: int, year: int, db: Session = Depends(get_db)):
             for expense in daily_expenses
         ]
     }
+
+
+@app.post("/send-monthly-report")
+def send_monthly_report(background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    today = date.today()
+    first_day_of_current_month = today.replace(day=1)
+    last_day_of_previous_month = first_day_of_current_month - timedelta(days=1)
+    year = last_day_of_previous_month.year
+    month = last_day_of_previous_month.month
+    print(f"Sending monthly report for {month}/{year}")
+
+    report_data = _send_monthly_report_logic(db, year, month)
+    if report_data:
+        background_tasks.add_task(send_email, "jainnaman027@gmail.com", report_data["subject"], report_data["body"])
+        return {"message": "Monthly report has been queued."}
+    
+    return {"message": "No report was generated."}
+
+
+class SavingGoalBase(BaseModel):
+    name: str
+    target_date: date
+    target_amount: float
+    saved_amount: float = 0
+
+    class Config:
+        orm_mode = True
+
+class SavingGoalCreate(SavingGoalBase):
+    pass
+
+class SavingGoal(SavingGoalBase):
+    id: int
+
+class AddAmountRequest(BaseModel):
+    amount: float
+
+@app.post("/saving-goals/", response_model=SavingGoal)
+def create_saving_goal(goal: SavingGoalCreate, db: Session = Depends(get_db)):
+    db_goal = models.SavingGoal(**goal.dict())
+    db.add(db_goal)
+    db.commit()
+    db.refresh(db_goal)
+    return db_goal
+
+@app.get("/saving-goals/", response_model=List[SavingGoal])
+def get_saving_goals(db: Session = Depends(get_db)):
+    goals = db.query(models.SavingGoal).all()
+    return goals
+
+@app.put("/saving-goals/{goal_id}", response_model=SavingGoal)
+def update_saving_goal(goal_id: int, goal: SavingGoalCreate, db: Session = Depends(get_db)):
+    db_goal = db.query(models.SavingGoal).filter(models.SavingGoal.id == goal_id).first()
+    if not db_goal:
+        raise HTTPException(status_code=404, detail="Saving goal not found")
+    
+    for key, value in goal.dict().items():
+        setattr(db_goal, key, value)
+    
+    db.commit()
+    db.refresh(db_goal)
+    return db_goal
+
+@app.post("/saving-goals/{goal_id}/add-amount", response_model=SavingGoal)
+def add_amount_to_saving_goal(goal_id: int, request: AddAmountRequest, db: Session = Depends(get_db)):
+    db_goal = db.query(models.SavingGoal).filter(models.SavingGoal.id == goal_id).first()
+    if not db_goal:
+        raise HTTPException(status_code=404, detail="Saving goal not found")
+
+    db_goal.saved_amount += request.amount
+    db.commit()
+    db.refresh(db_goal)
+    return db_goal
+
+@app.delete("/saving-goals/{goal_id}")
+def delete_saving_goal(goal_id: int, db: Session = Depends(get_db)):
+    db_goal = db.query(models.SavingGoal).filter(models.SavingGoal.id == goal_id).first()
+    if not db_goal:
+        raise HTTPException(status_code=404, detail="Saving goal not found")
+
+    db.delete(db_goal)
+    db.commit()
+    return {"message": "Saving goal deleted successfully"}
+

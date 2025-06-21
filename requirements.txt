@@ -11,3 +11,6 @@ pandas
 scikit-learn
 python-multipart
 joblib
+matplotlib
+numpy
+quickchart.io

@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { Expense, TotalExpenses } from '../types/expense';
-import { Subscription } from '../types/subscription';
+import { Subscription, SubscriptionCreate } from '../types/subscription';
+import { SavingGoal, SavingGoalCreate } from '../types/savingGoal';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -38,8 +39,11 @@ export interface DailyExpensesResponse {
 }
 
 export const api = {
-  getExpenses: async (): Promise<Expense[]> => {
-    const response = await axiosInstance.get(`/expenses/`);
+  getExpenses: async (month?: number, year?: number): Promise<Expense[]> => {
+    const params = new URLSearchParams();
+    if (month !== undefined) params.append('month', month.toString());
+    if (year !== undefined) params.append('year', year.toString());
+    const response = await axiosInstance.get(`/expenses/?${params.toString()}`);
     return response.data;
   },
 
@@ -61,8 +65,19 @@ export const api = {
     return response.data;
   },
 
-  exportExpenses: () => {
-    window.location.href = `${API_BASE_URL}/expenses/export`;
+  exportExpenses: async () => {
+    const response = await fetch(`${API_BASE_URL}/expenses/export`);
+    if (!response.ok) {
+      throw new Error('Failed to export expenses');
+    }
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'expenses.xlsx';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   },
 
   getRecurringExpenses: async (): Promise<Subscription[]> => {
@@ -123,5 +138,79 @@ export const api = {
   getDailyExpenses: async (month: number, year: number): Promise<DailyExpensesResponse> => {
     const response = await axiosInstance.get(`/expenses/daily?month=${month}&year=${year}`);
     return response.data;
-  }
+  },
+
+  // Saving Goals
+  getSavingGoals: async (): Promise<SavingGoal[]> => {
+    const response = await fetch(`${API_BASE_URL}/saving-goals/`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch saving goals');
+    }
+    return response.json();
+  },
+
+  createSavingGoal: async (goal: SavingGoalCreate): Promise<SavingGoal> => {
+    const response = await fetch(`${API_BASE_URL}/saving-goals/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(goal),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to create saving goal');
+    }
+    return response.json();
+  },
+
+  addAmountToGoal: async (id: number, amount: number): Promise<SavingGoal> => {
+    const response = await fetch(`${API_BASE_URL}/saving-goals/${id}/add-amount`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount }),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to add amount to goal');
+    }
+    return response.json();
+  },
+
+  updateSavingGoal: async (id: number, goal: SavingGoalCreate): Promise<SavingGoal> => {
+    const response = await fetch(`${API_BASE_URL}/saving-goals/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(goal),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to update saving goal');
+    }
+    return response.json();
+  },
+
+  deleteSavingGoal: async (id: number): Promise<void> => {
+    const response = await fetch(`${API_BASE_URL}/saving-goals/${id}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      throw new Error('Failed to delete saving goal');
+    }
+  },
+
+  // Subscriptions
+  getSubscriptions: async (): Promise<Subscription[]> => {
+    const response = await fetch(`${API_BASE_URL}/recurring-expenses/`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch subscriptions');
+    }
+    return response.json();
+  },
+
+  uploadStatement: async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await axiosInstance.post('/upload/', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
 };
