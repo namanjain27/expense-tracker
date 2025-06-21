@@ -15,7 +15,7 @@ import os
 import shutil
 from enum import Enum
 import joblib
-from statementExtractor import extract_transactions
+from service.statementExtractor import extract_transactions
 from dotenv import load_dotenv
 import os
 from apscheduler.schedulers.background import BackgroundScheduler

@@ -174,3 +174,5 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 expense-tracker-frontend/vite.config.ts
+expense-tracker-frontend/.env
+expense-tracker-frontend/vite.config.ts

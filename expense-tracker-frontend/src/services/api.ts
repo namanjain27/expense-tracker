@@ -202,4 +202,15 @@ export const api = {
     }
     return response.json();
   },
+
+  uploadStatement: async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await axiosInstance.post('/upload/', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
 };

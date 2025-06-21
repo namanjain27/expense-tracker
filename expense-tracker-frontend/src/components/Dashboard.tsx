@@ -5,8 +5,7 @@ import { Chart as ChartJS, ArcElement, Tooltip as ChartTooltip, Legend, Category
 import { Expense, TotalExpenses } from '../types/expense';
 import { api, DailyExpense } from '../services/api';
 import AddExpenseDialog from './AddExpenseDialog';
-// import ImportTransactions from './ImportTransactions';
-// import TransactionSummaryDialog from './TransactionSummaryDialog'; 
+import TransactionSummaryDialog from './TransactionSummaryDialog';
 import DeleteExpenseDialog from './DeleteExpenseDialog';
 import ExpenseList from './ExpenseList';
 import SubscriptionsPanel, { SubscriptionsPanelRef } from './SubscriptionsPanel';
@@ -24,6 +23,21 @@ export const ThemeContext = createContext({
     toggleTheme: () => {},
 });
 
+interface Transaction {
+    Date: string;
+    Description: string;
+    Withdrawal: number;
+    Deposit: number;
+}
+
+interface TransactionSummaryData {
+    data: Transaction[];
+    total_amount_withdrawn: number;
+    total_amount_deposited: number;
+    net_monthly_expenditure: number;
+    total_transcations: number;
+}
+
 ChartJS.register(ArcElement, ChartTooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, Title);
 
 const Dashboard: React.FC = () => {
@@ -34,8 +48,6 @@ const Dashboard: React.FC = () => {
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
     const subscriptionsPanelRef = useRef<SubscriptionsPanelRef>(null);
-    // const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false);
-    // const [transactionData, setTransactionData] = useState<Transaction[]>([]);
     const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
     const [intentionData, setIntentionData] = useState<{
@@ -50,6 +62,11 @@ const Dashboard: React.FC = () => {
     const [lineGraphLoading, setLineGraphLoading] = useState(false);
     const [lineGraphError, setLineGraphError] = useState<string>('');
     const [refreshTrigger, setRefreshTrigger] = useState(0);
+    const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false);
+    const [transactionSummary, setTransactionSummary] = useState<TransactionSummaryData | null>(null);
+    const [uploading, setUploading] = useState(false);
+    const [uploadError, setUploadError] = useState<string>('');
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const theme = createTheme({
         palette: {
@@ -342,6 +359,30 @@ const Dashboard: React.FC = () => {
         }
     };
 
+    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) {
+            return;
+        }
+
+        setUploading(true);
+        setUploadError('');
+        try {
+            const summary = await api.uploadStatement(file);
+            setTransactionSummary(summary);
+            setIsTransactionDialogOpen(true);
+        } catch (error) {
+            console.error('Error uploading file:', error);
+            setUploadError('Failed to upload or process file.');
+        } finally {
+            setUploading(false);
+            // Reset file input
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+        }
+    };
+
     return (
         <ThemeContext.Provider value={{ isDarkMode, toggleTheme }}>
             <ThemeProvider theme={theme}>
@@ -499,15 +540,24 @@ const Dashboard: React.FC = () => {
                                         Export Data
                                     </Button>
                                 </Tooltip>
-                                {/* <Tooltip title="Extract data from any bank statement in .xls or .xlsx">
-                                <Button
+                                <Tooltip title="Extract data from any bank statement in .xls or .xlsx">
+                                    <Button
                                         variant="contained"
-                                        onClick={() => setIsTransactionDialogOpen(true)}
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={uploading}
                                     >
-                                        Import Transactions
-                                </Button>
-                                </Tooltip> */}
+                                        {uploading ? 'Uploading...' : 'Import Transactions'}
+                                    </Button>
+                                </Tooltip>
                             </Box>
+                            {uploadError && <Typography color="error">{uploadError}</Typography>}
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleFileChange}
+                                style={{ display: 'none' }}
+                                accept=".xls,.xlsx"
+                            />
                             <Box sx={{ height: 'calc(100% - 50px)', overflowY: 'auto' }}>
                                 <ExpenseList
                                     expenses={expenses}
@@ -542,19 +592,19 @@ const Dashboard: React.FC = () => {
                         onDelete={handleDeleteExpense}
                         expense={selectedExpense}
                     />
-
-                    {/* <TransactionSummaryDialog
-                        open={isTransactionDialogOpen}
-                        onClose={() => setIsTransactionDialogOpen(false)}
-                        transactions={transactionData}
-                    /> */}
-
+                    
                     <BudgetDialog
                         open={openBudgetDialog}
                         onClose={() => setOpenBudgetDialog(false)}
                         onSuccess={fetchData}
                         selectedMonth={selectedMonth}
                         selectedYear={selectedYear}
+                    />
+
+                    <TransactionSummaryDialog
+                        open={isTransactionDialogOpen}
+                        onClose={() => setIsTransactionDialogOpen(false)}
+                        summary={transactionSummary}
                     />
 
                     <Box

@@ -1,0 +1,128 @@
+{
+  "data": [
+    {
+      "Date": "01/04/25",
+      "Description": "UPI-ICCL  MUTUAL FUNDS  -MFAUTOPAY.ELEMENTS@HDFCBANK-HDFC0MERUPI-100268543371-ONLY RS 5000 WILL",
+      "Withdrawal": 5000,
+      "Deposit": 0
+    },
+    {
+      "Date": "01/04/25",
+      "Description": "UPI-ICCL  MUTUAL FUNDS  -MFAUTOPAY.ELEMENTS@HDFCBANK-HDFC0MERUPI-100268539283-ONLY RS 5000 WILL",
+      "Withdrawal": 5000,
+      "Deposit": 0
+    },
+    {
+      "Date": "02/04/25",
+      "Description": "UPI-HAPPY FRUIT JUICE CE-GPAY-11258401702@OKBIZAXIS-UTIB0000553-509260437291-UPI",
+      "Withdrawal": 40,
+      "Deposit": 0
+    },
+    {
+      "Date": "09/04/25",
+      "Description": "UPI-MD IRFAZ-PAYTMQR62QCBG@PTYS-YESB0PTMUPI-509915476944-UPI",
+      "Withdrawal": 13,
+      "Deposit": 0
+    },
+    {
+      "Date": "11/04/25",
+      "Description": "UPI-JAIN N-JAINNAMAN027-2@OKICICI-HSBC0400012-510128210780-UPI",
+      "Withdrawal": 0,
+      "Deposit": 95000
+    },
+    {
+      "Date": "11/04/25",
+      "Description": "UPI-NAMAN  JAIN-JAINNAMAN027-1@OKICICI-SBIN0017732-510193021509-UPI",
+      "Withdrawal": 0,
+      "Deposit": 40000
+    },
+    {
+      "Date": "11/04/25",
+      "Description": "UPI-GROWW INVEST TECH PV-GROWWNBT.ELEMENTS@HDFCBANK-HDFC0MERUPI-546764572896-PAID VIA ELEMENTS",
+      "Withdrawal": 100000,
+      "Deposit": 0
+    },
+    {
+      "Date": "11/04/25",
+      "Description": "UPI-NEXTBILLION TECHNOLO-GROWW1.PAYU@HDFCBANK-HDFC0MERUPI-546764674693-UPIINTENT",
+      "Withdrawal": 25000,
+      "Deposit": 0
+    },
+    {
+      "Date": "11/04/25",
+      "Description": "UPI-NAMAN  JAIN-JAINNAMAN027-1@OKICICI-SBIN0017732-510160726240-UPI",
+      "Withdrawal": 0,
+      "Deposit": 20000
+    },
+    {
+      "Date": "11/04/25",
+      "Description": "UPI-GROWW INVEST TECH PV-GROWWNBT.ELEMENTS@HDFCBANK-HDFC0MERUPI-546764701019-PAID VIA ELEMENTS",
+      "Withdrawal": 23000,
+      "Deposit": 0
+    },
+    {
+      "Date": "11/04/25",
+      "Description": "UPI-GROWW INVEST TECH PV-GROWWNBT.ELEMENTS@HDFCBANK-HDFC0MERUPI-546764704989-PAID VIA ELEMENTS",
+      "Withdrawal": 1000,
+      "Deposit": 0
+    },
+    {
+      "Date": "11/04/25",
+      "Description": "ACH C- VARUN BEVERAGES LIMI-4072049",
+      "Withdrawal": 0,
+      "Deposit": 4
+    },
+    {
+      "Date": "15/04/25",
+      "Description": "UPI-BACHU GUPTA-Q065319143@YBL-YESB0YBLUPI-510529180297-UPI",
+      "Withdrawal": 40,
+      "Deposit": 0
+    },
+    {
+      "Date": "15/04/25",
+      "Description": "UPI-DHANARAM GHISARAM CH-PAYTMQR6A4AYX@PTYS-YESB0PTMUPI-510529578178-UPI",
+      "Withdrawal": 88,
+      "Deposit": 0
+    },
+    {
+      "Date": "16/04/25",
+      "Description": "UPI-ICCL  MUTUAL FUNDS  -MFAUTOPAY.ELEMENTS@HDFCBANK-HDFC0MERUPI-100369621774-ONLY RS 5000 WILL",
+      "Withdrawal": 5000,
+      "Deposit": 0
+    },
+    {
+      "Date": "17/04/25",
+      "Description": "UPI-JAIN N-JAINNAMAN027-2@OKICICI-HSBC0400012-510726752010-UPI",
+      "Withdrawal": 0,
+      "Deposit": 30000
+    },
+    {
+      "Date": "17/04/25",
+      "Description": "UPI-MANU KUMAR BALIRAM Y-Q498927571@YBL-YESB0YBLUPI-510733694463-UPI",
+      "Withdrawal": 100,
+      "Deposit": 0
+    },
+    {
+      "Date": "17/04/25",
+      "Description": "UPI-DILEEP RAMDIN GUPTA-PAYTMQR68RS80@PTYS-YESB0PTMUPI-510733699558-UPI",
+      "Withdrawal": 20,
+      "Deposit": 0
+    },
+    {
+      "Date": "26/04/25",
+      "Description": "UPI-AARYA AGENCY-Q373237009@YBL-YESB0YBLUPI-511650307488-UPI",
+      "Withdrawal": 70,
+      "Deposit": 0
+    },
+    {
+      "Date": "28/04/25",
+      "Description": "UPI-NEW PRINCE BAKERY  G-PAYTMQR61OR0D@PTYS-YESB0PTMUPI-511854386245-UPI",
+      "Withdrawal": 210,
+      "Deposit": 0
+    }
+  ],
+  "total_amount_withdrawn": 164581,
+  "total_amount_deposited": 185004,
+  "net_monthly_expenditure": -20423,
+  "total_transcations": 20
+}
