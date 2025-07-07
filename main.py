@@ -7,7 +7,7 @@ from datetime import date, timedelta, datetime
 from dateutil.relativedelta import relativedelta
 from database import get_db, engine
 import models
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, EmailStr
 from fastapi.responses import FileResponse
 from openpyxl import Workbook
 import tempfile
@@ -22,6 +22,10 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 import atexit
 from service.mail_service import _send_monthly_report_logic, send_email, scheduled_report_job
+from service import auth_service
+from fastapi.security import OAuth2PasswordRequestForm
+from fastapi import status
+
 load_dotenv()
 
 # Load the ML model
@@ -30,7 +34,30 @@ model = joblib.load('categoryFinder.pkl')
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
 
-app = FastAPI()
+app = FastAPI(openapi_tags=[
+    {"name": "Authentication", "description": "Operations related to user registration and login"},
+    {"name": "Expenses", "description": "Manage user expenses"},
+    {"name": "Recurring Expenses", "description": "Manage user recurring expenses/subscriptions"},
+    {"name": "Budget", "description": "Manage user monthly budget and savings goal"},
+    {"name": "Saving Goals", "description": "Manage user saving goals"},
+    {"name": "Utilities", "description": "Other utility operations like category prediction and statement upload"}
+])
+
+app.openapi_extra = {
+    "security": [
+        {"bearerAuth": []}
+    ],
+    "components": {
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+                "description": "Enter your JWT Bearer token in the format 'Bearer <token>'"
+            }
+        }
+    }
+}
 
 scheduler = BackgroundScheduler(daemon=True)
 scheduler.add_job(scheduled_report_job, CronTrigger(day=1, hour=6, minute=0))
@@ -53,6 +80,27 @@ app.add_middleware(
     allow_methods=["*"],  # Allow all HTTP methods (GET, POST, PUT, etc.)
     allow_headers=["*"]  # Allow all headers
 )
+
+# Pydantic models for Users and Auth
+class UserBase(BaseModel):
+    email: EmailStr
+    name: str | None = None
+
+class UserCreate(UserBase):
+    password: str
+
+class User(UserBase):
+    id: int
+    created_at: datetime | None = None
+    last_login: datetime | None = None
+
+    class Config:
+        orm_mode = True
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
 # Category mapping
 CATEGORIES = {
     1: "Food",
@@ -148,9 +196,7 @@ class RecurringExpense(RecurringExpenseBase):
 class DueTomorrowResponse(BaseModel):
     message: str
 
-    # class importBankStatementResponse(BaseModel):
-
-
+# Add this with other Pydantic models
 class DueTomorrowListResponse(BaseModel):
     subscriptions: List[RecurringExpense]
 
@@ -194,8 +240,6 @@ def predict_category(request: CategoryPredictionRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-
 @app.post("/upload/")
 async def upload_file(file: UploadFile = File(...)):
     if not file.filename.endswith((".xls", ".xlsx")):
@@ -222,20 +266,19 @@ async def upload_file(file: UploadFile = File(...)):
             "net_monthly_expenditure": net_monthly_expenditure,
             "total_transcations": count}
 
-
 @app.post("/expenses/", response_model=Expense)
-def create_expense(expense: ExpenseCreate, db: Session = Depends(get_db)):
+def create_expense(expense: ExpenseCreate, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
     if expense.category_id not in CATEGORIES:
         raise HTTPException(status_code=400, detail="Invalid category ID. Must be between 1 and 9")
     
-    db_expense = models.Expense(**expense.dict())
+    db_expense = models.Expense(**expense.dict(), user_id=current_user.id)
     db.add(db_expense)
     db.commit()
     db.refresh(db_expense)
     return Expense(**db_expense.__dict__)
 
 @app.post("/recurring-expenses/", response_model=RecurringExpense)
-def create_recurring_expense(expense: RecurringExpenseCreate, db: Session = Depends(get_db)):
+def create_recurring_expense(expense: RecurringExpenseCreate, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
     if expense.category_id not in CATEGORIES:
         raise HTTPException(status_code=400, detail="Invalid category ID. Must be between 1 and 9")
     
@@ -251,7 +294,8 @@ def create_recurring_expense(expense: RecurringExpenseCreate, db: Session = Depe
         billing_period_value=expense.billing_period.value,
         billing_period_unit=expense.billing_period.unit,
         due_period_value=expense.due_period.value,
-        due_period_unit=expense.due_period.unit
+        due_period_unit=expense.due_period.unit,
+        user_id=current_user.id # Assign user_id
     )
     db.add(db_expense)
     db.commit()
@@ -280,8 +324,9 @@ def create_recurring_expense(expense: RecurringExpenseCreate, db: Session = Depe
     )
 
 @app.get("/expenses/", response_model=List[Expense])
-def read_expenses(month: int = None, year: int = None, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+def read_expenses(month: int = None, year: int = None, skip: int = 0, limit: int = 100, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
     # If month and year are provided, filter expenses for that month
+    query = db.query(models.Expense).filter(models.Expense.user_id == current_user.id)
     if month is not None and year is not None:
         start_date = date(year, month, 1)
         if month == 12:
@@ -289,15 +334,17 @@ def read_expenses(month: int = None, year: int = None, skip: int = 0, limit: int
         else:
             end_date = date(year, month + 1, 1)
         
-    expenses = db.query(models.Expense).filter(
-        models.Expense.date >= start_date,
-        models.Expense.date < end_date
-    ).offset(skip).limit(limit).all()
+        query = query.filter(
+            models.Expense.date >= start_date,
+            models.Expense.date < end_date
+        )
+    expenses = query.offset(skip).limit(limit).all()
     return [Expense(**expense.__dict__) for expense in expenses]
 
 @app.get("/expenses/total")
-def get_total_expenses(month: int = None, year: int = None, db: Session = Depends(get_db)):
+def get_total_expenses(month: int = None, year: int = None, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
     # If month and year are provided, filter expenses for that month
+    query = db.query(models.Expense).filter(models.Expense.user_id == current_user.id)
     if month is not None and year is not None:
         start_date = date(year, month, 1)
         if month == 12:
@@ -306,13 +353,13 @@ def get_total_expenses(month: int = None, year: int = None, db: Session = Depend
             end_date = date(year, month + 1, 1)
         
         # Get overall total for the month
-        total = db.query(models.Expense).filter(
+        total = query.filter(
             models.Expense.date >= start_date,
             models.Expense.date < end_date
         ).with_entities(func.sum(models.Expense.amount)).scalar()
         
         # Get category-wise totals for the month
-        category_totals = db.query(
+        category_totals = query.with_entities(
             models.Expense.category_id,
             func.sum(models.Expense.amount).label('total')
         ).filter(
@@ -321,10 +368,10 @@ def get_total_expenses(month: int = None, year: int = None, db: Session = Depend
         ).group_by(models.Expense.category_id).all()
     else:
         # Get overall total
-        total = db.query(models.Expense).with_entities(func.sum(models.Expense.amount)).scalar()
+        total = query.with_entities(func.sum(models.Expense.amount)).scalar()
         
         # Get category-wise totals
-        category_totals = db.query(
+        category_totals = query.with_entities(
             models.Expense.category_id,
             func.sum(models.Expense.amount).label('total')
         ).group_by(models.Expense.category_id).all()
@@ -340,10 +387,10 @@ def get_total_expenses(month: int = None, year: int = None, db: Session = Depend
     }
 
 @app.delete("/expenses/{expense_id}")
-def delete_expense(expense_id: int, db: Session = Depends(get_db)):
-    expense = db.query(models.Expense).filter(models.Expense.id == expense_id).first()
+def delete_expense(expense_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
+    expense = db.query(models.Expense).filter(models.Expense.id == expense_id, models.Expense.user_id == current_user.id).first()
     if expense is None:
-        raise HTTPException(status_code=404, detail="Expense not found")
+        raise HTTPException(status_code=404, detail="Expense not found or not authorized")
     
     message = f"Expense on {expense.date} for {CATEGORIES[expense.category_id]} amounting to {expense.amount} deleted successfully"
     db.delete(expense)
@@ -351,9 +398,9 @@ def delete_expense(expense_id: int, db: Session = Depends(get_db)):
     return message
 
 @app.get("/expenses/export")
-def export_expenses(db: Session = Depends(get_db)):
-    # Get all expenses
-    expenses = db.query(models.Expense).all()
+def export_expenses(db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
+    # Get all expenses for the current user
+    expenses = db.query(models.Expense).filter(models.Expense.user_id == current_user.id).all()
     
     # Create a new workbook
     wb = Workbook()
@@ -388,11 +435,11 @@ def export_expenses(db: Session = Depends(get_db)):
     )
 
 @app.get("/recurring-expenses/", response_model=List[RecurringExpense])
-def get_recurring_expenses(db: Session = Depends(get_db)):
+def get_recurring_expenses(db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
     today = date.today()
     
-    # Get all subscriptions where effective_date + subscription_period >= today
-    subscriptions = db.query(models.RecurringExpense).all()
+    # Get all subscriptions for the current user where effective_date + subscription_period >= today
+    subscriptions = db.query(models.RecurringExpense).filter(models.RecurringExpense.user_id == current_user.id).all()
     active_subscriptions = []
     
     for sub in subscriptions:
@@ -431,10 +478,10 @@ def get_recurring_expenses(db: Session = Depends(get_db)):
     return active_subscriptions
 
 @app.post("/recurring-expenses/{subscription_id}/update-effective-date", response_model=RecurringExpense)
-def update_subscription_effective_date(subscription_id: int, db: Session = Depends(get_db)):
-    subscription = db.query(models.RecurringExpense).filter(models.RecurringExpense.id == subscription_id).first()
+def update_subscription_effective_date(subscription_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
+    subscription = db.query(models.RecurringExpense).filter(models.RecurringExpense.id == subscription_id, models.RecurringExpense.user_id == current_user.id).first()
     if not subscription:
-        raise HTTPException(status_code=404, detail="Subscription not found")
+        raise HTTPException(status_code=404, detail="Subscription not found or not authorized")
     
     # Calculate new effective date based on billing period
     if subscription.billing_period_unit == "days":
@@ -472,10 +519,10 @@ def update_subscription_effective_date(subscription_id: int, db: Session = Depen
     }
 
 @app.put("/recurring-expenses/{subscription_id}", response_model=RecurringExpense)
-def update_recurring_expense(subscription_id: int, expense: RecurringExpenseCreate, db: Session = Depends(get_db)):
-    db_expense = db.query(models.RecurringExpense).filter(models.RecurringExpense.id == subscription_id).first()
+def update_recurring_expense(subscription_id: int, expense: RecurringExpenseCreate, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
+    db_expense = db.query(models.RecurringExpense).filter(models.RecurringExpense.id == subscription_id, models.RecurringExpense.user_id == current_user.id).first()
     if not db_expense:
-        raise HTTPException(status_code=404, detail="Subscription not found")
+        raise HTTPException(status_code=404, detail="Subscription not found or not authorized")
     
     # Update the expense fields
     db_expense.name = expense.name
@@ -516,11 +563,11 @@ def update_recurring_expense(subscription_id: int, expense: RecurringExpenseCrea
     }
 
 @app.get("/recurring-expenses/due-tomorrow", response_model=Union[DueTomorrowListResponse, DueTomorrowResponse])
-def get_subscriptions_due_tomorrow(db: Session = Depends(get_db)):
+def get_subscriptions_due_tomorrow(db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
     today = datetime.now().date()
     
-    # Get all active subscriptions
-    subscriptions = db.query(models.RecurringExpense).all()
+    # Get all active subscriptions for the current user
+    subscriptions = db.query(models.RecurringExpense).filter(models.RecurringExpense.user_id == current_user.id).all()
     due_subscriptions = []
     
     for sub in subscriptions:
@@ -562,10 +609,10 @@ def get_subscriptions_due_tomorrow(db: Session = Depends(get_db)):
     return DueTomorrowListResponse(subscriptions=due_subscriptions)
 
 @app.delete("/recurring-expenses/{subscription_id}")
-def delete_recurring_expense(subscription_id: int, db: Session = Depends(get_db)):
-    subscription = db.query(models.RecurringExpense).filter(models.RecurringExpense.id == subscription_id).first()
+def delete_recurring_expense(subscription_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
+    subscription = db.query(models.RecurringExpense).filter(models.RecurringExpense.id == subscription_id, models.RecurringExpense.user_id == current_user.id).first()
     if subscription is None:
-        raise HTTPException(status_code=404, detail="Subscription not found")
+        raise HTTPException(status_code=404, detail="Subscription not found or not authorized")
     
     message = f"Subscription {subscription.name} amounting to {subscription.amount} deleted successfully"
     db.delete(subscription)
@@ -573,8 +620,8 @@ def delete_recurring_expense(subscription_id: int, db: Session = Depends(get_db)
     return message
 
 @app.get("/expenses/intention-breakdown")
-def get_intention_breakdown(month: int, year: int, db: Session = Depends(get_db)):
-    # Get all expenses for the specified month and year
+def get_intention_breakdown(month: int, year: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
+    # Get all expenses for the specified month and year for the current user
     start_date = date(year, month, 1)
     if month == 12:
         end_date = date(year + 1, 1, 1)
@@ -583,7 +630,8 @@ def get_intention_breakdown(month: int, year: int, db: Session = Depends(get_db)
     
     expenses = db.query(models.Expense).filter(
         models.Expense.date >= start_date,
-        models.Expense.date < end_date
+        models.Expense.date < end_date,
+        models.Expense.user_id == current_user.id
     ).all()
     
     # Calculate totals for each intention
@@ -610,7 +658,7 @@ def get_intention_breakdown(month: int, year: int, db: Session = Depends(get_db)
     }
 
 @app.post("/budget/", response_model=Budget)
-def create_budget(budget: BudgetCreate, db: Session = Depends(get_db)):
+def create_budget(budget: BudgetCreate, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
     # Convert category names to IDs
     category_budgets = {}
     for category_name, amount in budget.category_budgets.items():
@@ -623,7 +671,8 @@ def create_budget(budget: BudgetCreate, db: Session = Depends(get_db)):
         monthly_income=budget.monthly_income,
         saving_goal=budget.saving_goal,
         category_budgets=category_budgets,
-        created_at=datetime.now()
+        created_at=datetime.now(),
+        user_id=current_user.id # Assign user_id
     )
     db.add(db_budget)
     db.commit()
@@ -644,8 +693,8 @@ def create_budget(budget: BudgetCreate, db: Session = Depends(get_db)):
     )
 
 @app.get("/budget/latest", response_model=Budget)
-def get_latest_budget(month: int = None, year: int = None, db: Session = Depends(get_db)):
-    query = db.query(models.Budget)
+def get_latest_budget(month: int = None, year: int = None, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
+    query = db.query(models.Budget).filter(models.Budget.user_id == current_user.id)
     
     if month is not None and year is not None:
         # Filter budgets for the specified month and year
@@ -677,8 +726,8 @@ def get_latest_budget(month: int = None, year: int = None, db: Session = Depends
     )
 
 @app.put("/budget/latest", response_model=Budget)
-def update_latest_budget(budget: BudgetCreate, month: int = None, year: int = None, db: Session = Depends(get_db)):
-    query = db.query(models.Budget)
+def update_latest_budget(budget: BudgetCreate, month: int = None, year: int = None, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
+    query = db.query(models.Budget).filter(models.Budget.user_id == current_user.id)
     
     if month is not None and year is not None:
         # Filter budgets for the specified month and year
@@ -707,7 +756,8 @@ def update_latest_budget(budget: BudgetCreate, month: int = None, year: int = No
             monthly_income=budget.monthly_income,
             saving_goal=budget.saving_goal,
             category_budgets=category_budgets,
-            created_at=datetime.now()
+            created_at=datetime.now(),
+            user_id=current_user.id # Assign user_id
         )
         db.add(new_budget)
         db.commit()
@@ -744,7 +794,7 @@ def update_latest_budget(budget: BudgetCreate, month: int = None, year: int = No
     )
 
 @app.get("/expenses/daily")
-def get_daily_expenses(month: int, year: int, db: Session = Depends(get_db)):
+def get_daily_expenses(month: int, year: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
     # Calculate start and end dates for the month
     start_date = date(year, month, 1)
     if month == 12:
@@ -752,13 +802,14 @@ def get_daily_expenses(month: int, year: int, db: Session = Depends(get_db)):
     else:
         end_date = date(year, month + 1, 1)
     
-    # Query expenses for the month and group by date
+    # Query expenses for the month and group by date for the current user
     daily_expenses = db.query(
         models.Expense.date,
         func.sum(models.Expense.amount).label('total')
     ).filter(
         models.Expense.date >= start_date,
-        models.Expense.date < end_date
+        models.Expense.date < end_date,
+        models.Expense.user_id == current_user.id
     ).group_by(
         models.Expense.date
     ).order_by(
@@ -776,23 +827,21 @@ def get_daily_expenses(month: int, year: int, db: Session = Depends(get_db)):
         ]
     }
 
-
 @app.post("/send-monthly-report")
-def send_monthly_report(background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+def send_monthly_report(background_tasks: BackgroundTasks, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
     today = date.today()
     first_day_of_current_month = today.replace(day=1)
     last_day_of_previous_month = first_day_of_current_month - timedelta(days=1)
     year = last_day_of_previous_month.year
     month = last_day_of_previous_month.month
-    print(f"Sending monthly report for {month}/{year}")
+    print(f"Sending monthly report for {month}/{year} to user {current_user.email}")
 
-    report_data = _send_monthly_report_logic(db, year, month)
+    report_data = _send_monthly_report_logic(db, year, month, current_user.id)
     if report_data:
-        background_tasks.add_task(send_email, "jainnaman027@gmail.com", report_data["subject"], report_data["body"])
+        background_tasks.add_task(send_email, current_user.email, report_data["subject"], report_data["body"])
         return {"message": "Monthly report has been queued."}
     
     return {"message": "No report was generated."}
-
 
 class SavingGoalBase(BaseModel):
     name: str
@@ -813,23 +862,23 @@ class AddAmountRequest(BaseModel):
     amount: float
 
 @app.post("/saving-goals/", response_model=SavingGoal)
-def create_saving_goal(goal: SavingGoalCreate, db: Session = Depends(get_db)):
-    db_goal = models.SavingGoal(**goal.dict())
+def create_saving_goal(goal: SavingGoalCreate, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
+    db_goal = models.SavingGoal(**goal.dict(), user_id=current_user.id)
     db.add(db_goal)
     db.commit()
     db.refresh(db_goal)
     return db_goal
 
 @app.get("/saving-goals/", response_model=List[SavingGoal])
-def get_saving_goals(db: Session = Depends(get_db)):
-    goals = db.query(models.SavingGoal).all()
+def get_saving_goals(db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
+    goals = db.query(models.SavingGoal).filter(models.SavingGoal.user_id == current_user.id).all()
     return goals
 
 @app.put("/saving-goals/{goal_id}", response_model=SavingGoal)
-def update_saving_goal(goal_id: int, goal: SavingGoalCreate, db: Session = Depends(get_db)):
-    db_goal = db.query(models.SavingGoal).filter(models.SavingGoal.id == goal_id).first()
+def update_saving_goal(goal_id: int, goal: SavingGoalCreate, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
+    db_goal = db.query(models.SavingGoal).filter(models.SavingGoal.id == goal_id, models.SavingGoal.user_id == current_user.id).first()
     if not db_goal:
-        raise HTTPException(status_code=404, detail="Saving goal not found")
+        raise HTTPException(status_code=404, detail="Saving goal not found or not authorized")
     
     for key, value in goal.dict().items():
         setattr(db_goal, key, value)
@@ -839,10 +888,10 @@ def update_saving_goal(goal_id: int, goal: SavingGoalCreate, db: Session = Depen
     return db_goal
 
 @app.post("/saving-goals/{goal_id}/add-amount", response_model=SavingGoal)
-def add_amount_to_saving_goal(goal_id: int, request: AddAmountRequest, db: Session = Depends(get_db)):
-    db_goal = db.query(models.SavingGoal).filter(models.SavingGoal.id == goal_id).first()
+def add_amount_to_saving_goal(goal_id: int, request: AddAmountRequest, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
+    db_goal = db.query(models.SavingGoal).filter(models.SavingGoal.id == goal_id, models.SavingGoal.user_id == current_user.id).first()
     if not db_goal:
-        raise HTTPException(status_code=404, detail="Saving goal not found")
+        raise HTTPException(status_code=404, detail="Saving goal not found or not authorized")
 
     db_goal.saved_amount += request.amount
     db.commit()
@@ -850,12 +899,46 @@ def add_amount_to_saving_goal(goal_id: int, request: AddAmountRequest, db: Sessi
     return db_goal
 
 @app.delete("/saving-goals/{goal_id}")
-def delete_saving_goal(goal_id: int, db: Session = Depends(get_db)):
-    db_goal = db.query(models.SavingGoal).filter(models.SavingGoal.id == goal_id).first()
+def delete_saving_goal(goal_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
+    db_goal = db.query(models.SavingGoal).filter(models.SavingGoal.id == goal_id, models.SavingGoal.user_id == current_user.id).first()
     if not db_goal:
-        raise HTTPException(status_code=404, detail="Saving goal not found")
+        raise HTTPException(status_code=404, detail="Saving goal not found or not authorized")
 
     db.delete(db_goal)
     db.commit()
     return {"message": "Saving goal deleted successfully"}
+
+@app.post("/auth/register", response_model=User)
+def register_user(user: UserCreate, db: Session = Depends(get_db)):
+    db_user = db.query(models.User).filter(models.User.email == user.email).first()
+    if db_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    hashed_password = auth_service.get_password_hash(user.password)
+    db_user = models.User(email=user.email, hashed_password=hashed_password, name=user.name, created_at=datetime.now())
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+@app.post("/auth/token", response_model=Token)
+def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.email == form_data.username).first()
+    if not user or not auth_service.verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    access_token_expires = timedelta(minutes=auth_service.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = auth_service.create_access_token(
+        data={"sub": str(user.id)}, expires_delta=access_token_expires
+    )
+    
+    # Update last login time
+    user.last_login = datetime.now()
+    db.commit()
+    
+    return {"access_token": access_token, "token_type": "bearer"}
 

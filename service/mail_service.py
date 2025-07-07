@@ -26,7 +26,7 @@ CATEGORIES = {
     9: "Debt"
 }
 
-def _send_monthly_report_logic(db: Session, year: int, month: int):
+def _send_monthly_report_logic(db: Session, year: int, month: int, user_id: int):
     """
     Contains the core logic for generating the monthly report for a specific month and year.
     Returns a dictionary with 'subject' and 'body' if a report is generated, otherwise None.
@@ -37,14 +37,16 @@ def _send_monthly_report_logic(db: Session, year: int, month: int):
 
     budget = db.query(models.Budget).filter(
         models.Budget.created_at >= start_date,
-        models.Budget.created_at < end_date
+        models.Budget.created_at < end_date,
+        models.Budget.user_id == user_id
     ).first()
 
     template_file = 'email_templates/monthly_report_template.html' if budget else 'email_templates/monthly_report_template_no_budget.html'
 
     expenses = db.query(models.Expense).filter(
         models.Expense.date >= start_date,
-        models.Expense.date < end_date
+        models.Expense.date < end_date,
+        models.Expense.user_id == user_id
     ).all()
 
     total_spent = sum(expense.amount for expense in expenses)
@@ -53,7 +55,8 @@ def _send_monthly_report_logic(db: Session, year: int, month: int):
     last_month_start = start_date - relativedelta(months=1)
     past_expenses = db.query(models.Expense).filter(
         models.Expense.date >= last_month_start,
-        models.Expense.date < start_date
+        models.Expense.date < start_date,
+        models.Expense.user_id == user_id
     ).all()
     past_total_spent = sum(expense.amount for expense in past_expenses)
     percent_change_expenses = ((total_spent - past_total_spent) / past_total_spent * 100) if past_total_spent > 0 else "N/A"
@@ -61,7 +64,7 @@ def _send_monthly_report_logic(db: Session, year: int, month: int):
     overspent_categories = []
     if budget and budget.category_budgets:
         category_expenses_q = db.query(models.Expense.category_id, func.sum(models.Expense.amount).label('total'))\
-            .filter(models.Expense.date >= start_date, models.Expense.date < end_date)\
+            .filter(models.Expense.date >= start_date, models.Expense.date < end_date, models.Expense.user_id == user_id)\
             .group_by(models.Expense.category_id).all()
 
         category_expenses = {item.category_id: item.total for item in category_expenses_q}
@@ -80,9 +83,9 @@ def _send_monthly_report_logic(db: Session, year: int, month: int):
     top_expense_3 = f"{top_expenses[2].name} of amount ₹{top_expenses[2].amount:,.2f} on {top_expenses[2].date.strftime('%Y-%m-%d')}" if len(top_expenses) > 2 else "N/A"
 
     # Generate charts
-    budget_vs_actual_chart_url = chart_service.generate_budget_vs_actual_chart(db, year, month)
-    intention_breakdown_pie_url = chart_service.generate_intention_breakdown_chart(db, year, month)
-    daily_spend_line_chart_url = chart_service.generate_daily_spend_chart(db, year, month)
+    budget_vs_actual_chart_url = chart_service.generate_budget_vs_actual_chart(db, year, month, user_id)
+    intention_breakdown_pie_url = chart_service.generate_intention_breakdown_chart(db, year, month, user_id)
+    daily_spend_line_chart_url = chart_service.generate_daily_spend_chart(db, year, month, user_id)
 
     with open(template_file, 'r') as file:
         email_body = file.read()
@@ -128,7 +131,7 @@ def send_email(to_email: str, subject: str, body: str):
 
 def scheduled_report_job():
     """
-    Scheduled job to send monthly report if expenses were made in the previous month.
+    Scheduled job to send monthly report to all active users if expenses were made in the previous month.
     """
     print("Scheduler: Running monthly report job check...")
     db = next(get_db())
@@ -138,23 +141,25 @@ def scheduled_report_job():
     year = last_day_of_previous_month.year
     month = last_day_of_previous_month.month
 
-    start_date = datetime(year, month, 1)
-    end_date = start_date + relativedelta(months=1)
+    users = db.query(models.User).all()
 
-    expenses_count = db.query(models.Expense).filter(
-        models.Expense.date >= start_date,
-        models.Expense.date < end_date
-    ).count()
+    for user in users:
+        expenses_count = db.query(models.Expense).filter(
+            models.Expense.date >= datetime(year, month, 1),
+            models.Expense.date < (datetime(year, month, 1) + relativedelta(months=1)),
+            models.Expense.user_id == user.id
+        ).count()
 
-    if expenses_count > 0:
-        print(f"Scheduler: Found {expenses_count} expenses for {month}/{year}. Sending report.")
-        report_data = _send_monthly_report_logic(db, year, month)
-        if report_data:
-            try:
-                send_email("jainnaman027@gmail.com", report_data["subject"], report_data["body"])
-                print("Scheduler: Email sent successfully.")
-            except Exception as e:
-                print(f"Scheduler: Failed to send email: {e}")
-    else:
-        print(f"Scheduler: No expenses found for {month}/{year}. Report not sent.")
+        if expenses_count > 0:
+            print(f"Scheduler: Found {expenses_count} expenses for {month}/{year} for user {user.email}. Sending report.")
+            report_data = _send_monthly_report_logic(db, year, month, user.id)
+            if report_data:
+                try:
+                    send_email(user.email, report_data["subject"], report_data["body"])
+                    print(f"Scheduler: Email sent successfully to {user.email}.")
+                except Exception as e:
+                    print(f"Scheduler: Failed to send email to {user.email}: {e}")
+        else:
+            print(f"Scheduler: No expenses found for {month}/{year} for user {user.email}. Report not sent.")
+
     db.close()

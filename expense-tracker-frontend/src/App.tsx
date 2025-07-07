@@ -1,5 +1,5 @@
 import { CssBaseline, ThemeProvider, createTheme } from '@mui/material'
-import Dashboard from './components/Dashboard'
+import LandingPage from './components/LandingPage'
 
 const theme = createTheme()
 
@@ -7,7 +7,7 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Dashboard />
+      <LandingPage />
     </ThemeProvider>
   )
 }
