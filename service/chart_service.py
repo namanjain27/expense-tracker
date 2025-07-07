@@ -22,16 +22,15 @@ def _generate_chart_image(chart_config: dict, filename: str) -> str:
 
     try:
         url = qc.get_url()
-        print(f"Generated QuickChart URL for {filename}: {url}")
         return url
     except Exception as e:
         print(f"Error generating chart with QuickChart for '{filename}': {e}")
         return ""
 
-def generate_intention_breakdown_chart(db: Session, year: int, month: int) -> str:
+def generate_intention_breakdown_chart(db: Session, year: int, month: int, user_id: int) -> str:
     start_date = datetime(year, month, 1)
     end_date = start_date + relativedelta(months=1)
-    expenses = db.query(models.Expense).filter(models.Expense.date >= start_date, models.Expense.date < end_date).all()
+    expenses = db.query(models.Expense).filter(models.Expense.date >= start_date, models.Expense.date < end_date, models.Expense.user_id == user_id).all()
     
     intention_totals = {"Need": 0, "Want": 0, "Saving": 0}
     for expense in expenses:
@@ -52,11 +51,11 @@ def generate_intention_breakdown_chart(db: Session, year: int, month: int) -> st
     filename = f"intention_breakdown_{year}_{month}.png"
     return _generate_chart_image(chart_config, filename)
 
-def generate_daily_spend_chart(db: Session, year: int, month: int) -> str:
+def generate_daily_spend_chart(db: Session, year: int, month: int, user_id: int) -> str:
     start_date = datetime(year, month, 1)
     end_date = start_date + relativedelta(months=1)
     daily_expenses = db.query(models.Expense.date, func.sum(models.Expense.amount).label('total')) \
-        .filter(models.Expense.date >= start_date, models.Expense.date < end_date) \
+        .filter(models.Expense.date >= start_date, models.Expense.date < end_date, models.Expense.user_id == user_id) \
         .group_by(models.Expense.date).order_by(models.Expense.date).all()
     
     chart_config = {
@@ -70,12 +69,12 @@ def generate_daily_spend_chart(db: Session, year: int, month: int) -> str:
     filename = f"daily_spend_{year}_{month}.png"
     return _generate_chart_image(chart_config, filename)
 
-def generate_budget_vs_actual_chart(db: Session, year: int, month: int) -> str:
+def generate_budget_vs_actual_chart(db: Session, year: int, month: int, user_id: int) -> str:
     start_date = datetime(year, month, 1)
     end_date = start_date + relativedelta(months=1)
     
     category_totals_q = db.query(models.Expense.category_id, func.sum(models.Expense.amount).label('total')) \
-        .filter(models.Expense.date >= start_date, models.Expense.date < end_date) \
+        .filter(models.Expense.date >= start_date, models.Expense.date < end_date, models.Expense.user_id == user_id) \
         .group_by(models.Expense.category_id).all()
     category_totals = {CATEGORIES[item.category_id]: item.total for item in category_totals_q}
     

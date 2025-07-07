@@ -9,6 +9,44 @@ const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
 });
 
+// Add a request interceptor to include the JWT token
+axiosInstance.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+export interface User {
+  id: number;
+  email: string;
+  name?: string;
+  created_at?: string;
+  last_login?: string;
+}
+
+export interface UserCreate {
+  email: string;
+  password: string;
+  name?: string;
+}
+
+export interface LoginRequest {
+  username: string; // This will be the email
+  password: string;
+}
+
+export interface TokenResponse {
+  access_token: string;
+  token_type: string;
+}
+
 export interface Budget {
   id: number;
   monthly_income: number;
@@ -39,6 +77,40 @@ export interface DailyExpensesResponse {
 }
 
 export const api = {
+  // Authentication APIs
+  registerUser: async (userData: UserCreate): Promise<User> => {
+    const response = await axiosInstance.post('/auth/register', userData);
+    return response.data;
+  },
+
+  loginUser: async (credentials: LoginRequest): Promise<TokenResponse> => {
+    const formData = new URLSearchParams();
+    formData.append('username', credentials.username);
+    formData.append('password', credentials.password);
+
+    const response = await axiosInstance.post('/auth/token', formData.toString(), {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    });
+    localStorage.setItem('access_token', response.data.access_token);
+    return response.data;
+  },
+
+  logoutUser: (): void => {
+    localStorage.removeItem('access_token');
+  },
+
+  requestPasswordReset: async (email: string): Promise<any> => {
+    const response = await axiosInstance.post('/auth/request-password-reset', { email });
+    return response.data;
+  },
+
+  resetPassword: async (token: string, newPassword: string): Promise<any> => {
+    const response = await axiosInstance.post('/auth/reset-password', { token, new_password: newPassword });
+    return response.data;
+  },
+
   getExpenses: async (month?: number, year?: number): Promise<Expense[]> => {
     const params = new URLSearchParams();
     if (month !== undefined) params.append('month', month.toString());
@@ -66,12 +138,12 @@ export const api = {
   },
 
   exportExpenses: async () => {
-    const response = await fetch(`${API_BASE_URL}/expenses/export`);
-    if (!response.ok) {
-      throw new Error('Failed to export expenses');
-    }
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
+    // Changed to axiosInstance for consistency with auth
+    const response = await axiosInstance.get('/expenses/export', {
+      responseType: 'blob', // Important for downloading files
+    });
+
+    const url = window.URL.createObjectURL(new Blob([response.data]));
     const a = document.createElement('a');
     a.href = url;
     a.download = 'expenses.xlsx';
@@ -142,58 +214,28 @@ export const api = {
 
   // Saving Goals
   getSavingGoals: async (): Promise<SavingGoal[]> => {
-    const response = await fetch(`${API_BASE_URL}/saving-goals/`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch saving goals');
-    }
-    return response.json();
+    const response = await axiosInstance.get(`/saving-goals/`);
+    return response.data;
   },
 
   createSavingGoal: async (goal: SavingGoalCreate): Promise<SavingGoal> => {
-    const response = await fetch(`${API_BASE_URL}/saving-goals/`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(goal),
-    });
-    if (!response.ok) {
-      throw new Error('Failed to create saving goal');
-    }
-    return response.json();
+    const response = await axiosInstance.post(`/saving-goals/`, goal);
+    return response.data;
   },
 
   addAmountToGoal: async (id: number, amount: number): Promise<SavingGoal> => {
-    const response = await fetch(`${API_BASE_URL}/saving-goals/${id}/add-amount`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount }),
-    });
-    if (!response.ok) {
-      throw new Error('Failed to add amount to goal');
-    }
-    return response.json();
+    const response = await axiosInstance.post(`/saving-goals/${id}/add-amount`, { amount });
+    return response.data;
   },
 
   updateSavingGoal: async (id: number, goal: SavingGoalCreate): Promise<SavingGoal> => {
-    const response = await fetch(`${API_BASE_URL}/saving-goals/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(goal),
-    });
-    if (!response.ok) {
-      throw new Error('Failed to update saving goal');
-    }
-    return response.json();
+    const response = await axiosInstance.put(`/saving-goals/${id}`, goal);
+    return response.data;
   },
 
   deleteSavingGoal: async (id: number): Promise<void> => {
-    const response = await fetch(`${API_BASE_URL}/saving-goals/${id}`, {
-      method: 'DELETE',
-    });
-    if (!response.ok) {
-      throw new Error('Failed to delete saving goal');
-    }
+    await axiosInstance.delete(`/saving-goals/${id}`);
   },
-
   // Subscriptions
   getSubscriptions: async (): Promise<Subscription[]> => {
     const response = await fetch(`${API_BASE_URL}/recurring-expenses/`);
