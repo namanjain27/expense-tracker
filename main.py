@@ -101,6 +101,13 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
+class RequestPasswordResetRequest(BaseModel):
+    email: EmailStr
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
 # Category mapping
 CATEGORIES = {
     1: "Food",
@@ -941,4 +948,32 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
     db.commit()
     
     return {"access_token": access_token, "token_type": "bearer"}
+
+@app.post("/auth/request-password-reset", status_code=status.HTTP_200_OK)
+def request_password_reset(request: RequestPasswordResetRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.email == request.email).first()
+
+    if user:
+        token = auth_service.generate_password_reset_token(db, user.id)
+        reset_link = f"http://localhost:5173/reset-password?token={token}" # Frontend reset password URL
+        
+        # Send email with reset link - this function needs to be added in mail_service.py
+        background_tasks.add_task(send_email,
+                                  user.email,
+                                  "Password Reset Request for TrackX",
+                                  f"Click the following link to reset your password: {reset_link}")
+    
+    # Always return a generic success message for security reasons (don't reveal if email exists)
+    return {"message": "If an account with that email exists, a password reset link has been sent to your inbox."}
+
+@app.post("/auth/reset-password", status_code=status.HTTP_200_OK)
+def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db)):
+    user = auth_service.get_user_from_password_reset_token(db, request.token)
+    
+    hashed_password = auth_service.get_password_hash(request.new_password)
+    user.hashed_password = hashed_password
+    db.commit()
+    db.refresh(user)
+
+    return {"message": "Your password has been reset successfully."}
 

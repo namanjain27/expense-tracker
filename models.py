@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Float, Date, ForeignKey, JSON, DateTime
 from sqlalchemy.orm import relationship
 from database import Base
+from datetime import datetime
 
 # Base = declarative_base() # This line is redundant if Base is imported from database.py
 
@@ -73,4 +74,15 @@ class SavingGoal(Base):
     target_amount = Column(Float, nullable=False)
     saved_amount = Column(Float, nullable=False, default=0)
 
-    owner = relationship("User", back_populates="saving_goals") # Relationship 
+    owner = relationship("User", back_populates="saving_goals") # Relationship
+
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    token = Column(String, unique=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.now)
+    expires_at = Column(DateTime, nullable=False)
+
+    user = relationship("User") # Relationship to the User model 

@@ -13,7 +13,6 @@ from . import chart_service
 
 load_dotenv()
 
-# Category mapping
 CATEGORIES = {
     1: "Food",
     2: "Housing",
@@ -25,6 +24,27 @@ CATEGORIES = {
     8: "Savings",
     9: "Debt"
 }
+
+def send_email(to_email: str, subject: str, body: str):
+    from_email = "jainnaman027@gmail.com"
+    password = os.getenv("smpt_email_pass")
+
+    msg = MIMEMultipart()
+    msg['From'] = from_email
+    msg['To'] = to_email
+    msg['Subject'] = subject
+
+    msg.attach(MIMEText(body, 'html'))
+
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(from_email, password)
+        server.sendmail(from_email, to_email, msg.as_string())
+        server.quit()
+        print("Email sent successfully")
+    except Exception as e:
+        print(f"Failed to send email: {e}")
 
 def _send_monthly_report_logic(db: Session, year: int, month: int, user_id: int):
     """
@@ -106,28 +126,6 @@ def _send_monthly_report_logic(db: Session, year: int, month: int, user_id: int)
 
     subject = f"TrackX - {report_date.strftime('%B %Y')} Monthly Report"
     return {"subject": subject, "body": email_body}
-
-
-def send_email(to_email: str, subject: str, body: str):
-    from_email = "jainnaman027@gmail.com"
-    password = os.getenv("smpt_email_pass")
-
-    msg = MIMEMultipart()
-    msg['From'] = from_email
-    msg['To'] = to_email
-    msg['Subject'] = subject
-
-    msg.attach(MIMEText(body, 'html'))
-
-    try:
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(from_email, password)
-        server.sendmail(from_email, to_email, msg.as_string())
-        server.quit()
-        print("Email sent successfully")
-    except Exception as e:
-        print(f"Failed to send email: {e}")
 
 def scheduled_report_job():
     """

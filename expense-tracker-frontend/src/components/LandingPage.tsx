@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import CalendarIcon from '../assets/icons/3dicons-calender-front-color.png';
 import TravelIcon from '../assets/icons/3dicons-travel-dynamic-color.png';
 import RocketIcon from '../assets/icons/3dicons-rocket-front-color.png';
@@ -39,7 +40,7 @@ const LandingPage: React.FC = () => {
           TrackX
         </div>
         <nav>
-          <button style={{
+          <Link to="/login" style={{
             background: 'none',
             border: '1px solid #7B247C',
             color: 'white',
@@ -48,10 +49,12 @@ const LandingPage: React.FC = () => {
             marginRight: '15px',
             cursor: 'pointer',
             fontSize: '16px',
+            textDecoration: 'none',
+            display: 'inline-block',
           }}>
             Login
-          </button>
-          <button style={{
+          </Link>
+          <Link to="/signup" style={{
             background: '#7B247C',
             border: 'none',
             color: 'white',
@@ -59,9 +62,11 @@ const LandingPage: React.FC = () => {
             borderRadius: '5px',
             cursor: 'pointer',
             fontSize: '16px',
+            textDecoration: 'none',
+            display: 'inline-block',
           }}>
             Sign Up
-          </button>
+          </Link>
         </nav>
       </header>
 

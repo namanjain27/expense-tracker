@@ -22,7 +22,6 @@ def _generate_chart_image(chart_config: dict, filename: str) -> str:
 
     try:
         url = qc.get_url()
-        print(f"Generated QuickChart URL for {filename}: {url}")
         return url
     except Exception as e:
         print(f"Error generating chart with QuickChart for '{filename}': {e}")

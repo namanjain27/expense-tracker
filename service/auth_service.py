@@ -11,6 +11,7 @@ from database import get_db
 import models
 from dotenv import load_dotenv
 import os
+import uuid # Import uuid for token generation
 
 load_dotenv()
 
@@ -18,6 +19,7 @@ load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
+PASSWORD_RESET_TOKEN_EXPIRE_MINUTES = 60 # New: Expiry for password reset tokens
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
@@ -54,4 +56,46 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if user is None:
         raise credentials_exception
+    return user
+
+def generate_password_reset_token(db: Session, user_id: int) -> str:
+    # Invalidate any existing tokens for this user
+    db.query(models.PasswordResetToken).filter(models.PasswordResetToken.user_id == user_id).delete()
+    db.commit()
+
+    token = str(uuid.uuid4()) # Generate a unique token
+    expires_at = datetime.utcnow() + timedelta(minutes=PASSWORD_RESET_TOKEN_EXPIRE_MINUTES)
+    
+    db_token = models.PasswordResetToken(
+        user_id=user_id,
+        token=token,
+        expires_at=expires_at
+    )
+    db.add(db_token)
+    db.commit()
+    db.refresh(db_token)
+    return token
+
+def get_user_from_password_reset_token(db: Session, token: str) -> models.User:
+    token_record = db.query(models.PasswordResetToken).filter(models.PasswordResetToken.token == token).first()
+
+    if not token_record:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired password reset token.")
+
+    if datetime.utcnow() > token_record.expires_at:
+        db.delete(token_record) # Delete expired token
+        db.commit()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired password reset token.")
+
+    user = db.query(models.User).filter(models.User.id == token_record.user_id).first()
+    if not user:
+        # This should ideally not happen if user_id is a valid foreign key
+        db.delete(token_record) # Clean up token if user somehow doesn't exist
+        db.commit()
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found for this token.")
+    
+    # Invalidate the token after it's used
+    db.delete(token_record)
+    db.commit()
+
     return user 

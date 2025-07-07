@@ -101,6 +101,16 @@ export const api = {
     localStorage.removeItem('access_token');
   },
 
+  requestPasswordReset: async (email: string): Promise<any> => {
+    const response = await axiosInstance.post('/auth/request-password-reset', { email });
+    return response.data;
+  },
+
+  resetPassword: async (token: string, newPassword: string): Promise<any> => {
+    const response = await axiosInstance.post('/auth/reset-password', { token, new_password: newPassword });
+    return response.data;
+  },
+
   getExpenses: async (month?: number, year?: number): Promise<Expense[]> => {
     const params = new URLSearchParams();
     if (month !== undefined) params.append('month', month.toString());
