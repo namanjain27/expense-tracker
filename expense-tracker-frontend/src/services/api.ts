@@ -248,11 +248,22 @@ export const api = {
   uploadStatement: async (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
+
     const response = await axiosInstance.post('/upload/', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
     });
     return response.data;
+  },
+
+  generateMonthlyReport: async (month: number, year: number): Promise<string> => {
+    const response = await axiosInstance.get(`/monthly-report-html?month=${month}&year=${year}`);
+    return response.data;
+  },
+
+  sendMonthlyReportEmail: async (): Promise<boolean> => {
+    const response = await axiosInstance.post('/send-monthly-report');
+    return response.data && response.data.message === "Monthly report has been queued.";
   },
 };

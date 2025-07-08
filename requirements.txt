@@ -16,3 +16,4 @@ numpy
 quickchart.io
 passlib
 python-jose
+jinja2

@@ -1,5 +1,5 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import CalendarIcon from '../assets/icons/3dicons-calender-front-color.png';
 import TravelIcon from '../assets/icons/3dicons-travel-dynamic-color.png';
 import RocketIcon from '../assets/icons/3dicons-rocket-front-color.png';
@@ -12,8 +12,27 @@ import TargetIcon from '../assets/icons/3dicons-target-front-color.png';
 import CreditCardIcon from '../assets/icons/3dicons-credit-card-front-color.png';
 import ChartIcon from '../assets/icons/3dicons-chart-dynamic-color.png';
 import logo from '../assets/logo.png';
+import { api } from '../services/api';
 
 const LandingPage: React.FC = () => {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleGuestLogin = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await api.loginUser({ username: "jainnaman027@gmail.com", password: "adminpassword" });
+      navigate('/dashboard');
+    } catch (err: any) {
+      setError(err.response?.data?.detail || "Failed to login as guest. Please try again.");
+      console.error("Guest login failed:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div style={{
       backgroundColor: '#2b0c3d', // A dark purple from the image
@@ -36,8 +55,10 @@ const LandingPage: React.FC = () => {
         maxWidth: '1200px',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', fontSize: '48px', fontWeight: 'bold' }}>
-          <img src={logo} alt="Logo" style={{ width: '80px', height: '80px' }} />
-          TrackX
+          <Link to="/" style={{ textDecoration: 'none', color: 'white', display: 'flex', alignItems: 'center' }}>
+            <img src={logo} alt="Logo" style={{ width: '80px', height: '80px' }} />
+            TrackX
+          </Link>
         </div>
         <nav>
           <Link to="/login" style={{
@@ -84,17 +105,21 @@ const LandingPage: React.FC = () => {
         <h1 style={{ fontSize: '42px', margin: '0', lineHeight: '1.2' }}>The Modern Pocket Saver</h1>
         <p style={{ fontSize: '24px', margin: '0' }}>Fulfill your dream vacation trip</p>
         <p style={{ fontSize: '24px', margin: '0' }}>Your personal finance analysis app.</p>
-        <button style={{
-          background: '#7B247C',
-          border: 'none',
-          color: 'white',
-          padding: '15px 30px',
-          borderRadius: '8px',
-          cursor: 'pointer',
-          fontSize: '18px',
-          marginTop: '30px',
-        }}>
-          Try TrackX for free
+        {error && <p style={{ color: '#FF6347', margin: '0', fontSize: '16px' }}>{error}</p>}
+        <button
+          onClick={handleGuestLogin}
+          disabled={loading}
+          style={{
+            background: loading ? '#6a3a7b' : '#7B247C',
+            border: 'none',
+            color: 'white',
+            padding: '15px 30px',
+            borderRadius: '8px',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            fontSize: '18px',
+            marginTop: '30px',
+          }}>
+          {loading ? 'Logging in...' : 'Try TrackX for free'}
         </button>
 
         {/* Floating Icons */}

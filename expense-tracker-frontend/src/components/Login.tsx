@@ -51,8 +51,10 @@ const Login: React.FC = () => {
         textAlign: 'center',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '30px' }}>
-          <img src={logo} alt="TrackX Logo" style={{ width: '60px', height: '60px', marginRight: '10px' }} />
-          <h2 style={{ margin: '0', fontSize: '36px', color: 'white' }}>TrackX</h2>
+          <Link to="/" style={{ textDecoration: 'none', color: 'white', display: 'flex', alignItems: 'center' }}>
+            <img src={logo} alt="TrackX Logo" style={{ width: '60px', height: '60px', marginRight: '10px' }} />
+            <h2 style={{ margin: '0', fontSize: '36px', color: 'white' }}>TrackX</h2>
+          </Link>
         </div>
 
         <h3 style={{ fontSize: '28px', marginBottom: '20px', color: '#FFD700' }}>Login</h3>

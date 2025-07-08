@@ -16,6 +16,7 @@ import Brightness7Icon from '@mui/icons-material/Brightness7';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import SavingGoalsPanel from './SavingGoalsPanel';
+import MonthlyReportDialog from './MonthlyReportDialog';
 
 // Create theme context
 export const ThemeContext = createContext({
@@ -41,7 +42,7 @@ interface TransactionSummaryData {
 ChartJS.register(ArcElement, ChartTooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, Title);
 
 const Dashboard: React.FC = () => {
-    const [isDarkMode, setIsDarkMode] = useState(false);
+    const [isDarkMode, setIsDarkMode] = useState(true);
     const [expenses, setExpenses] = useState<Expense[]>([]);
     const [totals, setTotals] = useState<TotalExpenses | null>(null);
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -67,6 +68,14 @@ const Dashboard: React.FC = () => {
     const [uploading, setUploading] = useState(false);
     const [uploadError, setUploadError] = useState<string>('');
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // New state for monthly report dialog
+    const [openReportDialog, setOpenReportDialog] = useState(false);
+    const [reportHtmlContent, setReportHtmlContent] = useState<string | null>(null);
+    const [reportLoading, setReportLoading] = useState(false);
+    const [reportError, setReportError] = useState<string | null>(null);
+    const [emailSending, setEmailSending] = useState(false);
+    const [emailSendSuccess, setEmailSendSuccess] = useState(false);
 
     const theme = createTheme({
         palette: {
@@ -304,6 +313,21 @@ const Dashboard: React.FC = () => {
         (_, i) => new Date().getFullYear() - i
     );
 
+    const currentMonth = new Date().getMonth() + 1; // 1-indexed
+    const currentYear = new Date().getFullYear();
+
+    const availableMonths = months.filter((_, index) => {
+        if (selectedYear === currentYear) {
+            return index + 1 <= currentMonth;
+        }
+        return true; // All months available for past years
+    });
+
+    const availableYears = Array.from(
+        { length: currentYear - (currentYear - 5) + 1 }, // Adjust length to include current year and past 5 years (total 6 years)
+        (_, i) => currentYear - i
+    ).filter(year => year <= currentYear); // Ensure no future years
+
     const lineChartData = {
         labels: dailyExpenses.map(expense => {
             const date = new Date(expense.date);
@@ -383,6 +407,36 @@ const Dashboard: React.FC = () => {
         }
     };
 
+    const handleShowMonthlyReport = async () => {
+        setEmailSendSuccess(false); // Reset email sent status when opening report
+        setReportLoading(true);
+        setReportError(null);
+        try {
+            const htmlContent = await api.generateMonthlyReport(selectedMonth, selectedYear);
+            setReportHtmlContent(htmlContent);
+            setOpenReportDialog(true);
+        } catch (error) {
+            console.error('Error generating monthly report:', error);
+            setReportError('Failed to generate monthly report.');
+        } finally {
+            setReportLoading(false);
+        }
+    };
+
+    const handleSendMonthlyReportEmail = async () => {
+        setEmailSending(true);
+        setEmailSendSuccess(false);
+        try {
+            const success = await api.sendMonthlyReportEmail();
+            setEmailSendSuccess(success);
+        } catch (error) {
+            console.error('Error sending monthly report email:', error);
+            setReportError('Failed to send monthly report email.');
+        } finally {
+            setEmailSending(false);
+        }
+    };
+
     return (
         <ThemeContext.Provider value={{ isDarkMode, toggleTheme }}>
             <ThemeProvider theme={theme}>
@@ -403,7 +457,7 @@ const Dashboard: React.FC = () => {
                                 label="Month"
                                 onChange={(e) => setSelectedMonth(Number(e.target.value))}
                             >
-                                {months.map((month, index) => (
+                                {availableMonths.map((month, index) => (
                                     <MenuItem key={month} value={index + 1}>
                                         {month}
                                     </MenuItem>
@@ -417,7 +471,7 @@ const Dashboard: React.FC = () => {
                                 label="Year"
                                 onChange={(e) => setSelectedYear(Number(e.target.value))}
                             >
-                                {years.map((year) => (
+                                {availableYears.map((year) => (
                                     <MenuItem key={year} value={year}>
                                         {year}
                                     </MenuItem>
@@ -549,6 +603,18 @@ const Dashboard: React.FC = () => {
                                         {uploading ? 'Uploading...' : 'Import Transactions'}
                                     </Button>
                                 </Tooltip>
+                                <Tooltip title={totals?.overall_total === 0 ? "No expenses to show this month" : ""}>
+                                    <span>
+                                        <Button
+                                            variant="contained"
+                                            onClick={handleShowMonthlyReport}
+                                            disabled={reportLoading || (totals?.overall_total === 0)}
+                                            sx={{ ml: 1 }} // Add some left margin
+                                        >
+                                            {reportLoading ? 'Loading Report...' : 'Show Monthly Report'}
+                                        </Button>
+                                    </span>
+                                </Tooltip>
                             </Box>
                             {uploadError && <Typography color="error">{uploadError}</Typography>}
                             <input
@@ -605,6 +671,17 @@ const Dashboard: React.FC = () => {
                         open={isTransactionDialogOpen}
                         onClose={() => setIsTransactionDialogOpen(false)}
                         summary={transactionSummary}
+                    />
+
+                    <MonthlyReportDialog
+                        open={openReportDialog}
+                        onClose={() => { setOpenReportDialog(false); setEmailSendSuccess(false); } } // Reset email status on close
+                        htmlContent={reportHtmlContent}
+                        loading={reportLoading}
+                        error={reportError}
+                        onSendEmail={handleSendMonthlyReportEmail}
+                        emailSending={emailSending}
+                        emailSendSuccess={emailSendSuccess}
                     />
 
                     <Box

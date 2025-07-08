@@ -8,7 +8,7 @@ from dateutil.relativedelta import relativedelta
 from database import get_db, engine
 import models
 from pydantic import BaseModel, field_validator, EmailStr
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from openpyxl import Workbook
 import tempfile
 import os
@@ -21,12 +21,17 @@ import os
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 import atexit
-from service.mail_service import _send_monthly_report_logic, send_email, scheduled_report_job
+from service.mail_service import _send_monthly_report_logic, send_email, scheduled_report_job, send_password_reset_email
 from service import auth_service
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi import status
+import jinja2
 
 load_dotenv()
+
+# Setup Jinja2 for email templates
+template_loader = jinja2.FileSystemLoader(searchpath="./email_templates")
+template_env = jinja2.Environment(loader=template_loader)
 
 # Load the ML model
 model = joblib.load('categoryFinder.pkl')
@@ -845,10 +850,16 @@ def send_monthly_report(background_tasks: BackgroundTasks, db: Session = Depends
 
     report_data = _send_monthly_report_logic(db, year, month, current_user.id)
     if report_data:
-        background_tasks.add_task(send_email, current_user.email, report_data["subject"], report_data["body"])
-        return {"message": "Monthly report has been queued."}
-    
+        background_tasks.add_task(send_email, current_user.email, report_data["subject"], report_data["body"], is_html=True)
+        return {"message": "Monthly report has been queued."}    
     return {"message": "No report was generated."}
+
+@app.get("/monthly-report-html", response_class=HTMLResponse)
+def get_monthly_report_html(month: int, year: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
+    report_data = _send_monthly_report_logic(db, year, month, current_user.id)
+    if report_data:
+        return HTMLResponse(content=report_data["body"])
+    raise HTTPException(status_code=404, detail="Monthly report not found or could not be generated.")
 
 class SavingGoalBase(BaseModel):
     name: str
@@ -957,11 +968,14 @@ def request_password_reset(request: RequestPasswordResetRequest, background_task
         token = auth_service.generate_password_reset_token(db, user.id)
         reset_link = f"http://localhost:5173/reset-password?token={token}" # Frontend reset password URL
         
-        # Send email with reset link - this function needs to be added in mail_service.py
-        background_tasks.add_task(send_email,
+        # Load and render the password reset email template
+        # template = template_env.get_template("password_reset_template.html")
+        # email_body = template.render(reset_link=reset_link)
+        
+        # Send email with reset link
+        background_tasks.add_task(send_password_reset_email,
                                   user.email,
-                                  "Password Reset Request for TrackX",
-                                  f"Click the following link to reset your password: {reset_link}")
+                                  reset_link)
     
     # Always return a generic success message for security reasons (don't reveal if email exists)
     return {"message": "If an account with that email exists, a password reset link has been sent to your inbox."}
