@@ -223,7 +223,7 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
                                         }
                                     }}
                                 >
-                                    <TableCell>{expense.date}</TableCell>
+                                    <TableCell>{new Date(expense.date).toLocaleDateString('en-GB')}</TableCell>
                                     <TableCell>{expense.name}</TableCell>
                                     <TableCell>{expense.category}</TableCell>
                                     <TableCell>{expense.intention}</TableCell>

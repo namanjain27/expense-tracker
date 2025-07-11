@@ -968,16 +968,10 @@ def request_password_reset(request: RequestPasswordResetRequest, background_task
         token = auth_service.generate_password_reset_token(db, user.id)
         reset_link = f"http://localhost:5173/reset-password?token={token}" # Frontend reset password URL
         
-        # Load and render the password reset email template
-        # template = template_env.get_template("password_reset_template.html")
-        # email_body = template.render(reset_link=reset_link)
-        
-        # Send email with reset link
         background_tasks.add_task(send_password_reset_email,
                                   user.email,
                                   reset_link)
     
-    # Always return a generic success message for security reasons (don't reveal if email exists)
     return {"message": "If an account with that email exists, a password reset link has been sent to your inbox."}
 
 @app.post("/auth/reset-password", status_code=status.HTTP_200_OK)

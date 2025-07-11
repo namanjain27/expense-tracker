@@ -19,7 +19,7 @@ load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
-PASSWORD_RESET_TOKEN_EXPIRE_MINUTES = 60 # New: Expiry for password reset tokens
+PASSWORD_RESET_TOKEN_EXPIRE_MINUTES = 15 # New: Expiry for password reset tokens
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")

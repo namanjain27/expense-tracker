@@ -17,6 +17,7 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import SavingGoalsPanel from './SavingGoalsPanel';
 import MonthlyReportDialog from './MonthlyReportDialog';
+import AddSubscriptionDialog from './AddSubscriptionDialog'; // Import AddSubscriptionDialog
 
 // Create theme context
 export const ThemeContext = createContext({
@@ -76,6 +77,10 @@ const Dashboard: React.FC = () => {
     const [reportError, setReportError] = useState<string | null>(null);
     const [emailSending, setEmailSending] = useState(false);
     const [emailSendSuccess, setEmailSendSuccess] = useState(false);
+
+    // New state for AddSubscriptionDialog
+    const [isAddSubscriptionDialogOpen, setIsAddSubscriptionDialogOpen] = useState(false);
+    const [initialSubscriptionData, setInitialSubscriptionData] = useState<any>(null);
 
     const theme = createTheme({
         palette: {
@@ -189,6 +194,23 @@ const Dashboard: React.FC = () => {
         } catch (error) {
             console.error('Error adding expense:', error);
         }
+    };
+
+    // New handler for converting expense to subscription
+    const handleConverttoSubscription = (expenseData: Omit<Expense, 'id' | 'category'>) => {
+        // Pre-fill subscription dialog with expense data
+        setInitialSubscriptionData({
+            name: expenseData.name,
+            amount: expenseData.amount,
+            category_id: expenseData.category_id,
+            intention: expenseData.intention,
+            effective_date: expenseData.date, // Use the expense date as effective date
+            // Set default periods, user can change later
+            subscription_period: { value: 1, unit: 'months' }, 
+            billing_period: { value: 1, unit: 'months' },
+            due_period: { value: 1, unit: 'months' }
+        });
+        setIsAddSubscriptionDialogOpen(true);
     };
 
     const handleDeleteExpense = async (id: number) => {
@@ -650,6 +672,9 @@ const Dashboard: React.FC = () => {
                         onClose={() => setIsAddDialogOpen(false)}
                         onAdd={handleAddExpense}
                         onSubscriptionSuccess={() => subscriptionsPanelRef.current?.fetchSubscriptions()}
+                        selectedMonth={selectedMonth}
+                        selectedYear={selectedYear}
+                        onConverttoSubscription={handleConverttoSubscription} // Pass the new handler
                     />
 
                     <DeleteExpenseDialog
@@ -682,6 +707,16 @@ const Dashboard: React.FC = () => {
                         onSendEmail={handleSendMonthlyReportEmail}
                         emailSending={emailSending}
                         emailSendSuccess={emailSendSuccess}
+                    />
+
+                    <AddSubscriptionDialog
+                        open={isAddSubscriptionDialogOpen}
+                        onClose={() => setIsAddSubscriptionDialogOpen(false)}
+                        onSuccess={() => {
+                            subscriptionsPanelRef.current?.fetchSubscriptions();
+                            fetchData(); // Refresh expense data after adding subscription
+                        }}
+                        initialData={initialSubscriptionData}
                     />
 
                     <Box
