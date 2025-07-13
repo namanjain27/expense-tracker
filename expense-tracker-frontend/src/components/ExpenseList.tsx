@@ -113,7 +113,7 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="h6" gutterBottom>
-                    Monthly Expenses
+                    Monthly Transactions
                 </Typography>
                 <TextField
                     label="Search name or amount of expense"

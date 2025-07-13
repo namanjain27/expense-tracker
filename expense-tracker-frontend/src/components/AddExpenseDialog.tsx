@@ -34,14 +34,9 @@ interface AddExpenseDialogProps {
 const AddExpenseDialog: React.FC<AddExpenseDialogProps> = ({ open, onClose, onAdd, selectedMonth, selectedYear, onConverttoSubscription }) => {
     const { isDarkMode } = useContext(ThemeContext);
     const today = new Date();
-    // const formattedDate = today.getFullYear() + '-' + 
-    //     String(today.getMonth() + 1).padStart(2, '0') + '-' + 
-    //     String(today.getDate()).padStart(2, '0');
     const [name, setName] = useState('');
-    // const [date, setDate] = useState<Date | null>(new Date());
-    const [date, setDate] = useState<Date | null>(today);
+    const [date, setDate] = useState<Date | null>(null);
 
-    // const [date, setDate] = useState(formattedDate);
     const [categoryId, setCategoryId] = useState<number>(1);
     const [amount, setAmount] = useState('');
     const [intention, setIntention] = useState<IntentionType>('Need');
@@ -49,13 +44,9 @@ const AddExpenseDialog: React.FC<AddExpenseDialogProps> = ({ open, onClose, onAd
     const [showDateWarning, setShowDateWarning] = useState(false); // New state for warning
     const [dateWarningMessage, setDateWarningMessage] = useState(''); // New state for warning message
     
-    // const [isPredicting, setIsPredicting] = useState(false);
-
-    // Add prediction effect
     useEffect(() => {
         const predictCategory = async () => {
             if (name.trim()) {
-                // setIsPredicting(true);
                 try {
                     const response = await fetch('http://localhost:8000/predict-category', {
                         method: 'POST',
@@ -66,7 +57,6 @@ const AddExpenseDialog: React.FC<AddExpenseDialogProps> = ({ open, onClose, onAd
                     });
                     const data = await response.json();
                     if (data.category) {
-                        // Find category ID from name
                         const categoryId = Object.entries(CATEGORIES).find(
                             ([_, catName]) => catName === data.category
                         )?.[0];
@@ -77,7 +67,6 @@ const AddExpenseDialog: React.FC<AddExpenseDialogProps> = ({ open, onClose, onAd
                 } catch (error) {
                     console.error('Error predicting category:', error);
                 }
-                // setIsPredicting(false);
             }
         };
 
@@ -92,7 +81,7 @@ const AddExpenseDialog: React.FC<AddExpenseDialogProps> = ({ open, onClose, onAd
             const expenseYear = date.getFullYear();
 
             const today = new Date();
-            today.setHours(0, 0, 0, 0); // Normalize today to start of day
+            today.setHours(23, 59, 59, 999); // Set to end of today to allow today's date
 
             if (date.getTime() > today.getTime()) {
                 setDateWarningMessage("Future expense date is not allowed.");
@@ -123,14 +112,13 @@ const AddExpenseDialog: React.FC<AddExpenseDialogProps> = ({ open, onClose, onAd
         setIntention('Need');
         setIsRecurring(false);
       };
-    // const resetForm = () => {
-    //     setName('');
-    //     setDate(formattedDate);
-    //     setCategoryId(1);
-    //     setAmount('');
-    //     setIntention('Need');
-    //     setIsRecurring(false);
-    // };
+
+    // Set date to current date when dialog opens
+    useEffect(() => {
+        if (open) {
+            setDate(new Date());
+        }
+    }, [open]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -152,19 +140,6 @@ const AddExpenseDialog: React.FC<AddExpenseDialogProps> = ({ open, onClose, onAd
         }
     };
 
-    // const handleClose = () => {
-    //     resetForm();
-    //     onClose();
-    // };
-
-    // const handleSubscriptionSuccess = () => {
-    //     setShowSubscriptionDialog(false);
-    //     resetForm();
-    //     onClose();
-    //     if (onSubscriptionSuccess) {
-    //         onSubscriptionSuccess();
-    //     }
-    // };
 
     return (
         <Dialog 
@@ -206,6 +181,36 @@ const AddExpenseDialog: React.FC<AddExpenseDialogProps> = ({ open, onClose, onAd
                             }
                         }}
                     />
+                    <TextField
+                        label="Amount"
+                        type="number"
+                        value={amount}
+                        onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === '' || parseFloat(value) >= 0) {
+                                setAmount(value);
+                            }
+                        }}
+                        fullWidth
+                        required
+                        inputProps={{ min: 0, step: "1" }}
+                        InputProps={{
+                            startAdornment: <Typography sx={{ mr: 1, color: isDarkMode ? '#b0b0b0' : undefined }}>₹</Typography>
+                        }}
+                        sx={{
+                            '& .MuiInputLabel-root': {
+                                color: isDarkMode ? '#b0b0b0' : undefined
+                            },
+                            '& .MuiOutlinedInput-root': {
+                                '& fieldset': {
+                                    borderColor: isDarkMode ? '#333333' : undefined
+                                },
+                                '&:hover fieldset': {
+                                    borderColor: isDarkMode ? '#666666' : undefined
+                                }
+                            }
+                        }}
+                    />
                     <LocalizationProvider dateAdapter={AdapterDateFns}>
                         <DatePicker
                             label="Date"
@@ -232,31 +237,6 @@ const AddExpenseDialog: React.FC<AddExpenseDialogProps> = ({ open, onClose, onAd
                             {dateWarningMessage}
                         </Typography>
                     )}
-
-                    <TextField
-                        label="Amount"
-                        type="number"
-                        value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
-                        fullWidth
-                        required
-                        InputProps={{
-                            startAdornment: <Typography sx={{ mr: 1, color: isDarkMode ? '#b0b0b0' : undefined }}>₹</Typography>
-                        }}
-                        sx={{
-                            '& .MuiInputLabel-root': {
-                                color: isDarkMode ? '#b0b0b0' : undefined
-                            },
-                            '& .MuiOutlinedInput-root': {
-                                '& fieldset': {
-                                    borderColor: isDarkMode ? '#333333' : undefined
-                                },
-                                '&:hover fieldset': {
-                                    borderColor: isDarkMode ? '#666666' : undefined
-                                }
-                            }
-                        }}
-                    />
                     <FormControl fullWidth required>
                         <InputLabel sx={{ color: isDarkMode ? '#b0b0b0' : undefined }}>Category</InputLabel>
                         {/* <Select
@@ -335,7 +315,7 @@ const AddExpenseDialog: React.FC<AddExpenseDialogProps> = ({ open, onClose, onAd
                     onClick={handleSubmit} 
                     variant="contained" 
                     color="primary"
-                    disabled={!date || !amount || date.getTime() > today.getTime()} // Disable if date is in the future
+                    disabled={!date || !amount || date.getTime() > new Date(new Date().setHours(23, 59, 59, 999))} // Disable if date is in the future
                 >
                     Add Expense
                 </Button>
