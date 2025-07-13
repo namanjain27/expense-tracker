@@ -128,8 +128,8 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
                 component={Paper} 
                 sx={{ 
                     flex: 1,
-                    maxHeight: '1125px',
-                    overflow: 'auto',
+                    maxHeight: filteredExpenses.length > 10 ? '600px' : 'fit-content',
+                    overflow: filteredExpenses.length > 10 ? 'auto' : 'visible',
                     backgroundColor: isDarkMode ? '#1e1e1e' : '#ffffff',
                     '&::-webkit-scrollbar': {
                         width: '8px',

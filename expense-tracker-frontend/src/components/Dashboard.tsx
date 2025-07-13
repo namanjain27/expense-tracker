@@ -598,12 +598,27 @@ const Dashboard: React.FC = () => {
                             </Paper>
                         </Box>
 
-                        {/* Expense List - Full Width */}
-                        <Paper sx={{ p: 2, height: '700px' }}>
-                            <Box sx={{ mb: 2, display: 'flex', gap: 1 }}>
+                        {/* Actions Panel - Full Width */}
+                        <Paper sx={{ p: 3 }}>
+                            <Typography variant="h6" sx={{ mb: 2 }}>
+                                Actions
+                            </Typography>
+                            <Box sx={{ 
+                                display: 'grid', 
+                                gridTemplateColumns: 'repeat(4, 1fr)', 
+                                gap: 2,
+                                maxWidth: '800px'
+                            }}>
                                 <Button
                                     variant="contained"
                                     onClick={() => setIsAddDialogOpen(true)}
+                                    sx={{ 
+                                        aspectRatio: '3/2',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '0.875rem'
+                                    }}
                                 >
                                     Add Expense
                                 </Button>
@@ -612,6 +627,13 @@ const Dashboard: React.FC = () => {
                                         variant="contained"
                                         color="secondary"
                                         onClick={() => api.exportExpenses()}
+                                        sx={{ 
+                                            aspectRatio: '3/2',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontSize: '0.875rem'
+                                        }}
                                     >
                                         Export Data
                                     </Button>
@@ -621,6 +643,13 @@ const Dashboard: React.FC = () => {
                                         variant="contained"
                                         onClick={() => fileInputRef.current?.click()}
                                         disabled={uploading}
+                                        sx={{ 
+                                            aspectRatio: '3/2',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontSize: '0.875rem'
+                                        }}
                                     >
                                         {uploading ? 'Uploading...' : 'Import Transactions'}
                                     </Button>
@@ -631,14 +660,21 @@ const Dashboard: React.FC = () => {
                                             variant="contained"
                                             onClick={handleShowMonthlyReport}
                                             disabled={reportLoading || (totals?.overall_total === 0)}
-                                            sx={{ ml: 1 }} // Add some left margin
+                                            sx={{ 
+                                                aspectRatio: '3/2',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                fontSize: '0.875rem',
+                                                width: '100%'
+                                            }}
                                         >
                                             {reportLoading ? 'Loading Report...' : 'Show Monthly Report'}
                                         </Button>
                                     </span>
                                 </Tooltip>
                             </Box>
-                            {uploadError && <Typography color="error">{uploadError}</Typography>}
+                            {uploadError && <Typography color="error" sx={{ mt: 2 }}>{uploadError}</Typography>}
                             <input
                                 type="file"
                                 ref={fileInputRef}
@@ -646,7 +682,11 @@ const Dashboard: React.FC = () => {
                                 style={{ display: 'none' }}
                                 accept=".xls,.xlsx"
                             />
-                            <Box sx={{ height: 'calc(100% - 50px)', overflowY: 'auto' }}>
+                        </Paper>
+
+                        {/* Expense List - Full Width */}
+                        <Paper sx={{ p: 2 }}>
+                            <Box sx={{ height: '100%' }}>
                                 <ExpenseList
                                     expenses={expenses}
                                     onSelectExpense={setSelectedExpense}

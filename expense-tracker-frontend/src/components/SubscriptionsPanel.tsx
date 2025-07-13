@@ -107,7 +107,7 @@ const SubscriptionsPanel = forwardRef<SubscriptionsPanelRef>((_, ref) => {
       <CardContent>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Typography variant="h5" component="div">
-            Active Subscriptions
+            Subscriptions
           </Typography>
           <Button
             variant="contained"
