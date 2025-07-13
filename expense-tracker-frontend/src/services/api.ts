@@ -7,7 +7,27 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
+  withCredentials: true, // Enable cookies for refresh tokens
 });
+
+// Track ongoing refresh requests to prevent multiple simultaneous refresh calls
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (value: any) => void;
+  reject: (error: any) => void;
+}> = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach(({ resolve, reject }) => {
+    if (error) {
+      reject(error);
+    } else {
+      resolve(token);
+    }
+  });
+  
+  failedQueue = [];
+};
 
 // Add a request interceptor to include the JWT token
 axiosInstance.interceptors.request.use(
@@ -19,6 +39,67 @@ axiosInstance.interceptors.request.use(
     return config;
   },
   (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Add a response interceptor to handle 401 errors and refresh tokens
+axiosInstance.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        // If already refreshing, queue this request
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then(() => {
+          return axiosInstance(originalRequest);
+        }).catch((err) => {
+          return Promise.reject(err);
+        });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        // Attempt to refresh the token
+        const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {}, {
+          withCredentials: true,
+        });
+
+        const { access_token } = response.data;
+        localStorage.setItem('access_token', access_token);
+        
+        // Update the original request with new token
+        originalRequest.headers.Authorization = `Bearer ${access_token}`;
+        
+        processQueue(null, access_token);
+        
+        return axiosInstance(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+        
+        // Refresh failed - clear tokens and redirect to login
+        localStorage.removeItem('access_token');
+        
+        // Check if we're already on login page to avoid infinite redirects
+        if (!window.location.pathname.includes('/login')) {
+          // Show user-friendly message and redirect to login
+          alert('Your session has expired. Please log in again.');
+          window.location.href = '/login';
+        }
+        
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
+    }
+
     return Promise.reject(error);
   }
 );
@@ -92,13 +173,23 @@ export const api = {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
+      withCredentials: true, // Ensure cookies are handled for refresh token
     });
     localStorage.setItem('access_token', response.data.access_token);
     return response.data;
   },
 
-  logoutUser: (): void => {
-    localStorage.removeItem('access_token');
+  logoutUser: async (): Promise<void> => {
+    try {
+      // Call server logout to revoke refresh tokens
+      await axiosInstance.post('/auth/logout');
+    } catch (error) {
+      // Even if server logout fails, clear local storage
+      console.warn('Server logout failed:', error);
+    } finally {
+      // Always clear local access token
+      localStorage.removeItem('access_token');
+    }
   },
 
   requestPasswordReset: async (email: string): Promise<any> => {
@@ -238,11 +329,8 @@ export const api = {
   },
   // Subscriptions
   getSubscriptions: async (): Promise<Subscription[]> => {
-    const response = await fetch(`${API_BASE_URL}/recurring-expenses/`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch subscriptions');
-    }
-    return response.json();
+    const response = await axiosInstance.get('/recurring-expenses/');
+    return response.data;
   },
 
   uploadStatement: async (file: File) => {

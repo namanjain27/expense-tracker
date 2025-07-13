@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, BackgroundTasks
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, BackgroundTasks, Response, Request
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func
@@ -105,6 +105,11 @@ class User(UserBase):
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+class TokenWithRefresh(BaseModel):
+    access_token: str
+    token_type: str
+    # Note: refresh_token is sent as HttpOnly cookie, not in response body
 
 class RequestPasswordResetRequest(BaseModel):
     email: EmailStr
@@ -612,7 +617,7 @@ def get_subscriptions_due_tomorrow(db: Session = Depends(get_db), current_user: 
                 "due_period": {
                     "value": sub.due_period_value or 1,
                     "unit": sub.due_period_unit or "months"
-                }
+                },
             }
             due_subscriptions.append(subscription_dict)
     
@@ -939,8 +944,8 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
     db.refresh(db_user)
     return db_user
 
-@app.post("/auth/token", response_model=Token)
-def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+@app.post("/auth/token", response_model=TokenWithRefresh)
+def login_for_access_token(response: Response, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == form_data.username).first()
     if not user or not auth_service.verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
@@ -954,11 +959,77 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
         data={"sub": str(user.id)}, expires_delta=access_token_expires
     )
     
+    # Create refresh token
+    refresh_token = auth_service.create_refresh_token(db, user.id)
+    
+    # Set refresh token as HttpOnly cookie
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        max_age=auth_service.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,  # Convert days to seconds
+        httponly=True,
+        secure=True,  # Use only over HTTPS in production
+        samesite="lax"
+    )
+    
     # Update last login time
     user.last_login = datetime.now()
     db.commit()
     
     return {"access_token": access_token, "token_type": "bearer"}
+
+@app.post("/auth/refresh", response_model=Token, tags=["Authentication"])
+def refresh_access_token(request: Request, response: Response, db: Session = Depends(get_db)):
+    """
+    Refresh access token using refresh token from HttpOnly cookie.
+    Implements token rotation - returns new access token and sets new refresh token cookie.
+    """
+    refresh_token = request.cookies.get("refresh_token")
+    if not refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token not found"
+        )
+    
+    # Validate the refresh token and get user
+    user = auth_service.validate_refresh_token(db, refresh_token)
+    
+    # Revoke the old refresh token (token rotation)
+    auth_service.revoke_refresh_token(db, refresh_token)
+    
+    # Create new access token
+    access_token_expires = timedelta(minutes=auth_service.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = auth_service.create_access_token(
+        data={"sub": str(user.id)}, expires_delta=access_token_expires
+    )
+    
+    # Create new refresh token (token rotation)
+    new_refresh_token = auth_service.create_refresh_token(db, user.id)
+    
+    # Set new refresh token as HttpOnly cookie
+    response.set_cookie(
+        key="refresh_token",
+        value=new_refresh_token,
+        max_age=auth_service.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        httponly=True,
+        secure=True,
+        samesite="lax"
+    )
+    
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@app.post("/auth/logout", tags=["Authentication"])
+def logout(request: Request, response: Response, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
+    """
+    Logout user by revoking all refresh tokens and clearing cookies.
+    """
+    # Revoke all refresh tokens for the user
+    auth_service.revoke_all_user_refresh_tokens(db, current_user.id)
+    
+    # Clear the refresh token cookie
+    response.delete_cookie(key="refresh_token", httponly=True, secure=True, samesite="lax")
+    
+    return {"message": "Successfully logged out"}
 
 @app.post("/auth/request-password-reset", status_code=status.HTTP_200_OK)
 def request_password_reset(request: RequestPasswordResetRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):

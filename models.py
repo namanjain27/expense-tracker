@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Date, ForeignKey, JSON, DateTime
+from sqlalchemy import Column, Integer, String, Float, Date, ForeignKey, JSON, DateTime, Boolean
 from sqlalchemy.orm import relationship
 from database import Base
 from datetime import datetime
@@ -19,6 +19,7 @@ class User(Base):
     recurring_expenses = relationship("RecurringExpense", back_populates="owner")
     budgets = relationship("Budget", back_populates="owner")
     saving_goals = relationship("SavingGoal", back_populates="owner")
+    refresh_tokens = relationship("RefreshToken", back_populates="user")
 
 class Expense(Base):
     __tablename__ = "expenses"
@@ -85,4 +86,16 @@ class PasswordResetToken(Base):
     created_at = Column(DateTime, default=datetime.now)
     expires_at = Column(DateTime, nullable=False)
 
-    user = relationship("User") # Relationship to the User model 
+    user = relationship("User") # Relationship to the User model
+
+class RefreshToken(Base):
+    __tablename__ = "refresh_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    token = Column(String, unique=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.now)
+    expires_at = Column(DateTime, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+
+    user = relationship("User", back_populates="refresh_tokens") 

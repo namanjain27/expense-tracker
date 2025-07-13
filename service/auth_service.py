@@ -20,6 +20,7 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 PASSWORD_RESET_TOKEN_EXPIRE_MINUTES = 15 # New: Expiry for password reset tokens
+REFRESH_TOKEN_EXPIRE_DAYS = 7 # New: Expiry for refresh tokens
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
@@ -98,4 +99,83 @@ def get_user_from_password_reset_token(db: Session, token: str) -> models.User:
     db.delete(token_record)
     db.commit()
 
-    return user 
+    return user
+
+def create_refresh_token(db: Session, user_id: int) -> str:
+    """
+    Creates a new refresh token for the given user.
+    Generates a secure random token with 7-day expiry.
+    """
+    token = str(uuid.uuid4())
+    expires_at = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    
+    db_token = models.RefreshToken(
+        user_id=user_id,
+        token=token,
+        expires_at=expires_at,
+        is_active=True
+    )
+    db.add(db_token)
+    db.commit()
+    db.refresh(db_token)
+    return token
+
+def validate_refresh_token(db: Session, token: str) -> models.User:
+    """
+    Validates a refresh token and returns the associated user.
+    Raises HTTPException if token is invalid, expired, or inactive.
+    """
+    token_record = db.query(models.RefreshToken).filter(
+        models.RefreshToken.token == token,
+        models.RefreshToken.is_active == True
+    ).first()
+
+    if not token_record:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token"
+        )
+
+    if datetime.utcnow() > token_record.expires_at:
+        # Clean up expired token
+        token_record.is_active = False
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token has expired"
+        )
+
+    user = db.query(models.User).filter(models.User.id == token_record.user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found"
+        )
+    
+    return user
+
+def revoke_refresh_token(db: Session, token: str) -> bool:
+    """
+    Marks a refresh token as inactive (revokes it).
+    Used for token rotation and logout.
+    """
+    token_record = db.query(models.RefreshToken).filter(
+        models.RefreshToken.token == token
+    ).first()
+    
+    if token_record:
+        token_record.is_active = False
+        db.commit()
+        return True
+    return False
+
+def revoke_all_user_refresh_tokens(db: Session, user_id: int) -> None:
+    """
+    Revokes all active refresh tokens for a user.
+    Used during logout to invalidate all sessions.
+    """
+    db.query(models.RefreshToken).filter(
+        models.RefreshToken.user_id == user_id,
+        models.RefreshToken.is_active == True
+    ).update({"is_active": False})
+    db.commit() 
