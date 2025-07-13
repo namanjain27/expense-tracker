@@ -1,9 +1,16 @@
-# Expense Tracker 
+# TrackX - a personal financial analysis app 
 
 ## Tech Stack
-This expense tracker app uses python (FastAPI and SQLite) backend and React (Vite, written in typescript) frontend. 
+This expense tracker app uses python (FastAPI and SQLite) backend, React (Vite, written in typescript) frontend and SQLite as Database. 
 
-## Features
+## File Structure
+1. all the backend files exist in the same directory
+2. All the frontend files exist in the expense-tracker-frontend directory
+3. main.py contains all the API and there function implementation
+4. All the UI components are in expense-tracker-frontend\src\components
+5. all the api call from frontend are written in expense-tracker-frontend\src\services\api.ts
+
+## Features (Tentative | Keeps updating)
 1. Add and delete expenses
 2. Add, edit and delete subscriptions (recurring expense)
 3. UI focuses on showing one month data (latest by default) and lets user select the month and year
@@ -19,13 +26,6 @@ This expense tracker app uses python (FastAPI and SQLite) backend and React (Vit
 2. category-based budget vs actual expenses column-graph
 3. expense intention breakdown (need,want and savings) pie-chart
 4. Daily expense variation line graph
-
-## File Structure
-1. all the backend files exist in the same directory
-2. All the frontend files exist in the expense-tracker-frontend directory
-3. main.py contains all the API and there function implementation
-4. All the UI components are in expense-tracker-frontend\src\components
-5. all the api call from frontend are written in expense-tracker-frontend\src\services\api.ts
 
 ## Frontend Setup
 1. Install dependencies
