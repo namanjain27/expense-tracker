@@ -20,6 +20,9 @@ class User(Base):
     budgets = relationship("Budget", back_populates="owner")
     saving_goals = relationship("SavingGoal", back_populates="owner")
     refresh_tokens = relationship("RefreshToken", back_populates="user")
+    incomes = relationship("Income", back_populates="owner")
+    savings = relationship("Saving", back_populates="owner")
+    accounts = relationship("Account", back_populates="owner")
 
 class Expense(Base):
     __tablename__ = "expenses"
@@ -98,4 +101,41 @@ class RefreshToken(Base):
     expires_at = Column(DateTime, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
 
-    user = relationship("User", back_populates="refresh_tokens") 
+    user = relationship("User", back_populates="refresh_tokens")
+
+class Income(Base):
+    __tablename__ = "incomes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    name = Column(String, nullable=True)
+    amount = Column(Float, nullable=False)
+    date = Column(Date, nullable=False)
+    category_id = Column(Integer, nullable=False)
+    created_at = Column(DateTime, default=datetime.now)
+
+    owner = relationship("User", back_populates="incomes")
+
+class Saving(Base):
+    __tablename__ = "savings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    name = Column(String, nullable=True)
+    amount = Column(Float, nullable=False)
+    date = Column(Date, nullable=False)
+    category_id = Column(Integer, nullable=False)
+    created_at = Column(DateTime, default=datetime.now)
+
+    owner = relationship("User", back_populates="savings")
+
+class Account(Base):
+    __tablename__ = "accounts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    balance = Column(Float, nullable=False, default=0.0)
+    created_at = Column(DateTime, default=datetime.now)
+    modified_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+    owner = relationship("User", back_populates="accounts") 
