@@ -2,6 +2,7 @@ import axios from 'axios';
 import { Expense, TotalExpenses } from '../types/expense';
 import { Subscription, SubscriptionCreate } from '../types/subscription';
 import { SavingGoal, SavingGoalCreate } from '../types/savingGoal';
+import { User } from '../types/user';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -104,13 +105,7 @@ axiosInstance.interceptors.response.use(
   }
 );
 
-export interface User {
-  id: number;
-  email: string;
-  name?: string;
-  created_at?: string;
-  last_login?: string;
-}
+// Note: User interface is now imported from ../types/user
 
 export interface UserCreate {
   email: string;
@@ -200,6 +195,26 @@ export const api = {
   resetPassword: async (token: string, newPassword: string): Promise<any> => {
     const response = await axiosInstance.post('/auth/reset-password', { token, new_password: newPassword });
     return response.data;
+  },
+
+  // Get current user information
+  getCurrentUser: async (): Promise<User> => {
+    const response = await axiosInstance.get('/auth/me');
+    return response.data;
+  },
+
+  // Enhanced logout function
+  logout: async (): Promise<void> => {
+    try {
+      await axiosInstance.post('/auth/logout');
+    } catch (error) {
+      console.warn('Server logout failed:', error);
+    } finally {
+      // Clear local storage
+      localStorage.removeItem('access_token');
+      // Redirect to login page
+      window.location.href = '/login';
+    }
   },
 
   getExpenses: async (month?: number, year?: number): Promise<Expense[]> => {

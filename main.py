@@ -949,7 +949,7 @@ def login_for_access_token(response: Response, form_data: OAuth2PasswordRequestF
     user = db.query(models.User).filter(models.User.email == form_data.username).first()
     if not user or not auth_service.verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=status.HTTP_403_FORBIDDEN,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
@@ -1055,4 +1055,15 @@ def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db))
     db.refresh(user)
 
     return {"message": "Your password has been reset successfully."}
+
+@app.get("/auth/me", response_model=User, tags=["Authentication"])
+def get_current_user_info(current_user: models.User = Depends(auth_service.get_current_user)):
+    """Get current authenticated user information"""
+    return User(
+        id=current_user.id,
+        email=current_user.email,
+        name=current_user.name,
+        created_at=current_user.created_at,
+        last_login=current_user.last_login
+    )
 

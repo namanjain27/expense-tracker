@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useRef, createContext } from 'react';
-import { Box, Button, Container, Paper, Typography, Tooltip, FormControl, InputLabel, Select, MenuItem, IconButton } from '@mui/material';
+import { Box, Button, Container, Paper, Typography, Tooltip } from '@mui/material';
 import { Doughnut, Line, Pie } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip as ChartTooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, Title } from 'chart.js';
 import { Expense, TotalExpenses } from '../types/expense';
 import { api, DailyExpense } from '../services/api';
+import { User } from '../types/user';
 import AddExpenseDialog from './AddExpenseDialog';
 import TransactionSummaryDialog from './TransactionSummaryDialog';
 import DeleteExpenseDialog from './DeleteExpenseDialog';
@@ -11,13 +12,12 @@ import ExpenseList from './ExpenseList';
 import SubscriptionsPanel, { SubscriptionsPanelRef } from './SubscriptionsPanel';
 import BudgetDialog from './BudgetDialog';
 import BudgetComparison from './BudgetComparison';
-import Brightness4Icon from '@mui/icons-material/Brightness4';
-import Brightness7Icon from '@mui/icons-material/Brightness7';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import SavingGoalsPanel from './SavingGoalsPanel';
 import MonthlyReportDialog from './MonthlyReportDialog';
-import AddSubscriptionDialog from './AddSubscriptionDialog'; // Import AddSubscriptionDialog
+import AddSubscriptionDialog from './AddSubscriptionDialog';
+import NavigationBar from './NavigationBar';
 
 // Create theme context
 export const ThemeContext = createContext({
@@ -52,6 +52,17 @@ const Dashboard: React.FC = () => {
     const subscriptionsPanelRef = useRef<SubscriptionsPanelRef>(null);
     const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+    
+    // User state
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
+    const [userLoading, setUserLoading] = useState(true);
+    
+    // Section refs for navigation
+    const chartsRef = useRef<HTMLDivElement>(null);
+    const actionsRef = useRef<HTMLDivElement>(null);
+    const expensesRef = useRef<HTMLDivElement>(null);
+    const subscriptionsRef = useRef<HTMLDivElement>(null);
+    const savingGoalsRef = useRef<HTMLDivElement>(null);
     const [intentionData, setIntentionData] = useState<{
         totals: { [key: string]: number },
         percentages: { [key: string]: number },
@@ -166,6 +177,23 @@ const Dashboard: React.FC = () => {
             setLineGraphLoading(false);
         }
     };
+
+    const fetchUser = async () => {
+        try {
+            setUserLoading(true);
+            const user = await api.getCurrentUser();
+            setCurrentUser(user);
+        } catch (error) {
+            console.error('Error fetching user:', error);
+            // If user fetch fails, user might not be authenticated
+        } finally {
+            setUserLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchUser();
+    }, []);
 
     useEffect(() => {
         fetchData();
@@ -459,47 +487,57 @@ const Dashboard: React.FC = () => {
         }
     };
 
+    // Navigation functions
+    const handleNavigateToSection = (sectionId: string) => {
+        const refs = {
+            'charts': chartsRef,
+            'actions': actionsRef,
+            'monthly-expenses': expensesRef,
+            'subscriptions': subscriptionsRef,
+            'saving-goals': savingGoalsRef
+        };
+
+        const targetRef = refs[sectionId as keyof typeof refs];
+        if (targetRef?.current) {
+            targetRef.current.scrollIntoView({ 
+                behavior: 'smooth',
+                block: 'start'
+            });
+        }
+    };
+
+    // Logout handler
+    const handleLogout = async () => {
+        try {
+            await api.logout();
+        } catch (error) {
+            console.error('Logout error:', error);
+            // Even if logout fails, redirect to login
+            window.location.href = '/login';
+        }
+    };
+
     return (
         <ThemeContext.Provider value={{ isDarkMode, toggleTheme }}>
             <ThemeProvider theme={theme}>
                 <CssBaseline />
-                <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-                    <Box sx={{ display: 'flex', mb: 3, gap: 3, alignItems: 'center' }}>
-                        <Typography variant="h4">
-                            Dashboard
-                        </Typography>
-                        <Box sx={{ flexGrow: 1 }} />
-                        <IconButton onClick={toggleTheme} color="inherit">
-                            {isDarkMode ? <Brightness7Icon /> : <Brightness4Icon />}
-                        </IconButton>
-                        <FormControl sx={{ minWidth: 120 }}>
-                            <InputLabel>Month</InputLabel>
-                            <Select
-                                value={selectedMonth}
-                                label="Month"
-                                onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                            >
-                                {availableMonths.map((month, index) => (
-                                    <MenuItem key={month} value={index + 1}>
-                                        {month}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-                        <FormControl sx={{ minWidth: 120 }}>
-                            <InputLabel>Year</InputLabel>
-                            <Select
-                                value={selectedYear}
-                                label="Year"
-                                onChange={(e) => setSelectedYear(Number(e.target.value))}
-                            >
-                                {availableYears.map((year) => (
-                                    <MenuItem key={year} value={year}>
-                                        {year}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
+                
+                {/* Navigation Bar */}
+                <NavigationBar
+                    selectedMonth={selectedMonth}
+                    selectedYear={selectedYear}
+                    onMonthChange={setSelectedMonth}
+                    onYearChange={setSelectedYear}
+                    availableMonths={availableMonths}
+                    availableYears={availableYears}
+                    onNavigateToSection={handleNavigateToSection}
+                    username={currentUser?.name || currentUser?.email || 'User'}
+                    onLogout={handleLogout}
+                />
+                
+                <Container maxWidth="lg" sx={{ mt: 2, mb: 4 }}>
+                    {/* Budget Button moved to top right of content area */}
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
                         <Button
                             variant="contained"
                             color="primary"
@@ -510,11 +548,15 @@ const Dashboard: React.FC = () => {
                     </Box>
                     <Box sx={{ display: 'flex', gap: 3, flexDirection: 'column' }}>
                         {/* 2x2 Grid for Charts */}
-                        <Box sx={{ 
-                            display: 'grid', 
-                            gridTemplateColumns: 'repeat(2, 1fr)', 
-                            gap: 3 
-                        }}>
+                        <Box 
+                            ref={chartsRef}
+                            sx={{ 
+                                display: 'grid', 
+                                gridTemplateColumns: 'repeat(2, 1fr)', 
+                                gap: 3,
+                                scrollMarginTop: '80px' // Account for sticky nav height
+                            }}
+                        >
                             {/* Monthly Expenses Chart */}
                             <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '400px' }}>
                                 <Box sx={{ mb: 2 }}>
@@ -599,7 +641,7 @@ const Dashboard: React.FC = () => {
                         </Box>
 
                         {/* Actions Panel - Full Width */}
-                        <Paper sx={{ p: 3 }}>
+                        <Paper ref={actionsRef} sx={{ p: 3, scrollMarginTop: '80px' }}>
                             <Typography variant="h6" sx={{ mb: 2 }}>
                                 Actions
                             </Typography>
@@ -685,7 +727,7 @@ const Dashboard: React.FC = () => {
                         </Paper>
 
                         {/* Expense List - Full Width */}
-                        <Paper sx={{ p: 2 }}>
+                        <Paper ref={expensesRef} sx={{ p: 2, scrollMarginTop: '80px' }}>
                             <Box sx={{ height: '100%' }}>
                                 <ExpenseList
                                     expenses={expenses}
@@ -697,12 +739,12 @@ const Dashboard: React.FC = () => {
                         </Paper>
 
                         {/* Subscriptions Panel - Full Width */}
-                        <Box sx={{ width: '100%' }}>
+                        <Box ref={subscriptionsRef} sx={{ width: '100%', scrollMarginTop: '80px' }}>
                             <SubscriptionsPanel ref={subscriptionsPanelRef} />
                         </Box>
 
                         {/* Saving Goals Panel - Full Width */}
-                        <Box sx={{ width: '100%' }}>
+                        <Box ref={savingGoalsRef} sx={{ width: '100%', scrollMarginTop: '80px' }}>
                             <SavingGoalsPanel />
                         </Box>
                     </Box>
