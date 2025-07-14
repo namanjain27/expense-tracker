@@ -185,9 +185,16 @@ const BalanceComponent: React.FC<BalanceComponentProps> = ({ refreshTrigger }) =
                             color: isDarkMode ? '#b0b0b0' : '#666666',
                             fontSize: '1.1rem',
                             fontWeight: 500,
-                            mb: 1
+                            mb: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 2
                         }}
-                    >
+                    ><img 
+                    src="/src/assets/colored icons/balance.png" 
+                    alt="Monthly Overview" 
+                    style={{ width: '50px', height: '50px'}}
+                    />
                         Total Balance
                     </Typography>
                     

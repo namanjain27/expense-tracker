@@ -218,9 +218,13 @@ const TriColorChart: React.FC<TriColorChartProps> = ({
                     mb: 2, 
                     color: isDarkMode ? '#ffffff' : '#333333',
                     textAlign: 'center',
-                    fontWeight: 600
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 1
                 }}
-            >
+            > 
                 Monthly Overview
             </Typography>
             

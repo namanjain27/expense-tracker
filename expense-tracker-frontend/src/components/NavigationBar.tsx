@@ -43,7 +43,7 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
 
     const navigationItems = [
         { id: 'actions', label: 'Actions' },
-        { id: 'monthly-expenses', label: 'Monthly Expenses' },
+        { id: 'monthly-expenses', label: 'Transactions' },
         { id: 'subscriptions', label: 'Subscriptions' },
         { id: 'saving-goals', label: 'Saving Goals' }
     ];

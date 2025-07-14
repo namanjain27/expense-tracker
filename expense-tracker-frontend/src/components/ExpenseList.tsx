@@ -126,7 +126,12 @@ const MonthlyTransactionList: React.FC<MonthlyTransactionListProps> = ({
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="h6" gutterBottom>
+                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <img 
+                        src="/src/assets/colored icons/transactions.png" 
+                        alt="Monthly Transactions" 
+                        style={{ width: '50px', height: '50px' }}
+                    />
                     Monthly Transactions
                 </Typography>
                 <TextField

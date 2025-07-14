@@ -603,7 +603,17 @@ const Dashboard: React.FC = () => {
                             variant="contained"
                             color="primary"
                             onClick={() => setOpenBudgetDialog(true)}
+                            sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1
+                            }}
                         >
+                            <img 
+                                src="/src/assets/colored icons/budget (1).png" 
+                                alt="Budget" 
+                                style={{ width: '50px', height: '50px' }}
+                            />
                             {months[selectedMonth - 1]} - Budget
                         </Button>
                     </Box>
@@ -628,7 +638,7 @@ const Dashboard: React.FC = () => {
                                     border: `2px solid ${isDarkMode ? '#444444' : '#cccccc'}`
                                 }}
                             >
-                                <Typography variant="h6" sx={{ mb: 2, color: isDarkMode ? '#ffffff' : '#333333' }}>
+                                <Typography variant="h6" sx={{ mb: 2, color: isDarkMode ? '#ffffff' : '#333333', display: 'flex', alignItems: 'center', gap: 1 }}>
                                     Actions
                                 </Typography>
                                 <Box sx={{ 
@@ -643,11 +653,18 @@ const Dashboard: React.FC = () => {
                                         sx={{ 
                                             aspectRatio: '3/2',
                                             display: 'flex',
+                                            flexDirection: 'column',
                                             alignItems: 'center',
                                             justifyContent: 'center',
-                                            fontSize: '0.875rem'
+                                            fontSize: '0.875rem',
+                                            gap: 0.5
                                         }}
                                     >
+                                        <img 
+                                            src="/src/assets/colored icons/Add record.png" 
+                                            alt="Add Record" 
+                                            style={{ width: '40px', height: '40px' }}
+                                        />
                                         Add Record
                                     </Button>
                                     <Tooltip title="Download all expenses as Excel file">
@@ -658,11 +675,18 @@ const Dashboard: React.FC = () => {
                                             sx={{ 
                                                 aspectRatio: '3/2',
                                                 display: 'flex',
+                                                flexDirection: 'column',
                                                 alignItems: 'center',
                                                 justifyContent: 'center',
-                                                fontSize: '0.875rem'
+                                                fontSize: '0.875rem',
+                                                gap: 0.5
                                             }}
                                         >
+                                            <img 
+                                                src="/src/assets/colored icons/export (1).png" 
+                                                alt="Export Data" 
+                                                style={{ width: '40px', height: '40px' }}
+                                            />
                                             Export Data
                                         </Button>
                                     </Tooltip>
@@ -675,11 +699,18 @@ const Dashboard: React.FC = () => {
                                             sx={{ 
                                                 aspectRatio: '3/2',
                                                 display: 'flex',
+                                                flexDirection: 'column',
                                                 alignItems: 'center',
                                                 justifyContent: 'center',
-                                                fontSize: '0.875rem'
+                                                fontSize: '0.875rem',
+                                                gap: 0.5
                                             }}
                                         >
+                                            <img 
+                                                src="/src/assets/colored icons/import.png" 
+                                                alt="Import Transactions" 
+                                                style={{ width: '40px', height: '40px' }}
+                                            />
                                             {uploading ? 'Uploading...' : 'Import Transactions'}
                                         </Button>
                                     </Tooltip>
@@ -693,12 +724,19 @@ const Dashboard: React.FC = () => {
                                                 sx={{ 
                                                     aspectRatio: '3/2',
                                                     display: 'flex',
+                                                    flexDirection: 'column',
                                                     alignItems: 'center',
                                                     justifyContent: 'center',
                                                     fontSize: '0.875rem',
-                                                    width: '100%'
+                                                    width: '100%',
+                                                    gap: 0.5
                                                 }}
                                             >
+                                                <img 
+                                                    src="/src/assets/colored icons/report.png" 
+                                                    alt="Monthly Report" 
+                                                    style={{ width: '40px', height: '40px' }}
+                                                />
                                                 {reportLoading ? 'Loading Report...' : 'Show Monthly Report'}
                                             </Button>
                                         </span>
@@ -734,7 +772,9 @@ const Dashboard: React.FC = () => {
                             {/* Monthly Expenses Chart */}
                             <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '400px' }}>
                                 <Box sx={{ mb: 2 }}>
-                                    <Typography variant="h6">Monthly Expenses</Typography>
+                                    <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        Monthly Expenses
+                                    </Typography>
                                 </Box>
                                 <Box sx={{ display: 'flex', height: 'calc(100% - 60px)' }}>
                                     <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', maxHeight: '100%' }}>
@@ -773,7 +813,7 @@ const Dashboard: React.FC = () => {
                             {/* Expense Intention Breakdown Chart */}
                             <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '400px' }}>
                                 <Box sx={{ mb: 2 }}>
-                                    <Typography variant="h6" sx={{ ml: 2 }}>
+                                    <Typography variant="h6" sx={{ ml: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
                                         Expense Intention Breakdown
                                     </Typography>
                                 </Box>
@@ -790,7 +830,9 @@ const Dashboard: React.FC = () => {
                             {/* Daily Expense Variation Chart */}
                             <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '400px' }}>
                                 <Box sx={{ mb: 2 }}>
-                                    <Typography variant="h6">Daily Expense Variation</Typography>
+                                    <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        Daily Expense Variation
+                                    </Typography>
                                 </Box>
                                 {lineGraphLoading ? (
                                     <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
