@@ -52,7 +52,13 @@ const SavingGoalsPanel: React.FC = () => {
     return (
         <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h6">Saving Goals</Typography>
+                <Typography variant="h6"sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <img 
+                        src="/src/assets/colored icons/luggage.png" 
+                        alt="Saving Goals" 
+                        style={{ width: '50px', height: '50px' }}
+                    />Saving Goals
+                </Typography>
                 <Button variant="contained" onClick={() => setIsAddGoalDialogOpen(true)}>
                     Add Goal
                 </Button>

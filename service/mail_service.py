@@ -10,6 +10,7 @@ import os
 from dotenv import load_dotenv
 from database import get_db
 from . import chart_service
+import jinja2
 
 load_dotenv()
 
@@ -25,7 +26,7 @@ CATEGORIES = {
     9: "Debt"
 }
 
-def send_email(to_email: str, subject: str, body: str):
+def send_email(to_email: str, subject: str, body: str, is_html: bool = False):
     from_email = "jainnaman027@gmail.com"
     password = os.getenv("smpt_email_pass")
 
@@ -34,7 +35,10 @@ def send_email(to_email: str, subject: str, body: str):
     msg['To'] = to_email
     msg['Subject'] = subject
 
-    msg.attach(MIMEText(body, 'html'))
+    if is_html:
+        msg.attach(MIMEText(body, 'html'))
+    else:
+        msg.attach(MIMEText(body, 'plain'))
 
     try:
         server = smtplib.SMTP('smtp.gmail.com', 587)
@@ -103,7 +107,7 @@ def _send_monthly_report_logic(db: Session, year: int, month: int, user_id: int)
     top_expense_3 = f"{top_expenses[2].name} of amount ₹{top_expenses[2].amount:,.2f} on {top_expenses[2].date.strftime('%Y-%m-%d')}" if len(top_expenses) > 2 else "N/A"
 
     # Generate charts
-    budget_vs_actual_chart_url = chart_service.generate_budget_vs_actual_chart(db, year, month, user_id)
+    expense_by_category_chart_url = chart_service.generate_expense_by_category_chart(db, year, month, user_id)
     intention_breakdown_pie_url = chart_service.generate_intention_breakdown_chart(db, year, month, user_id)
     daily_spend_line_chart_url = chart_service.generate_daily_spend_chart(db, year, month, user_id)
 
@@ -120,7 +124,7 @@ def _send_monthly_report_logic(db: Session, year: int, month: int, user_id: int)
     email_body = email_body.replace('{{top_expense_1}}', top_expense_1)
     email_body = email_body.replace('{{top_expense_2}}', top_expense_2)
     email_body = email_body.replace('{{top_expense_3}}', top_expense_3)
-    email_body = email_body.replace('{{budget_vs_actual_chart_url}}', budget_vs_actual_chart_url)
+    email_body = email_body.replace('{{expense_by_category_chart_url}}', expense_by_category_chart_url)
     email_body = email_body.replace('{{intention_breakdown_pie_url}}', intention_breakdown_pie_url)
     email_body = email_body.replace('{{daily_spend_line_chart_url}}', daily_spend_line_chart_url)
 
@@ -153,7 +157,7 @@ def scheduled_report_job():
             report_data = _send_monthly_report_logic(db, year, month, user.id)
             if report_data:
                 try:
-                    send_email(user.email, report_data["subject"], report_data["body"])
+                    send_email(user.email, report_data["subject"], report_data["body"], is_html=True)
                     print(f"Scheduler: Email sent successfully to {user.email}.")
                 except Exception as e:
                     print(f"Scheduler: Failed to send email to {user.email}: {e}")
@@ -161,3 +165,11 @@ def scheduled_report_job():
             print(f"Scheduler: No expenses found for {month}/{year} for user {user.email}. Report not sent.")
 
     db.close()
+
+template_loader = jinja2.FileSystemLoader(searchpath="./email_templates")
+template_env = jinja2.Environment(loader=template_loader)
+
+def send_password_reset_email(to_email: str, reset_link: str):
+    template = template_env.get_template("password_reset_template.html")
+    email_body = template.render(reset_link=reset_link)
+    send_email(to_email, "Password Reset Request for TrackX", email_body, is_html=True)

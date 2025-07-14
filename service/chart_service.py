@@ -69,7 +69,7 @@ def generate_daily_spend_chart(db: Session, year: int, month: int, user_id: int)
     filename = f"daily_spend_{year}_{month}.png"
     return _generate_chart_image(chart_config, filename)
 
-def generate_budget_vs_actual_chart(db: Session, year: int, month: int, user_id: int) -> str:
+def generate_expense_by_category_chart(db: Session, year: int, month: int, user_id: int) -> str:
     start_date = datetime(year, month, 1)
     end_date = start_date + relativedelta(months=1)
     
@@ -90,5 +90,5 @@ def generate_budget_vs_actual_chart(db: Session, year: int, month: int, user_id:
         "options": {"plugins": {"legend": {"position": 'top'}, "title": {"display": True, "text": 'Monthly Expenses by Category'}}}
     }
         
-    filename = f"budget_vs_actual_{year}_{month}.png"
+    filename = f"expense_by_category_{year}_{month}.png"
     return _generate_chart_image(chart_config, filename) 

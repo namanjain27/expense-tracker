@@ -1,0 +1,32 @@
+# Cursor System Instructions
+
+## General Coding Principles
+- Prioritize clarity, readability, and maintainability over cleverness.
+- Use consistent naming conventions: `snake_case` for Python, `camelCase` for React/TypeScript.
+- Keep functions short and modular. One function = one purpose.
+- Avoid unnecessary abstractions or premature optimizations.
+- Add comments explaining the WHY of the changes made wherever necessary
+
+## Python (FastAPI Backend)
+- Use type hints everywhere.
+- Every endpoint must have proper request/response models (`pydantic.BaseModel`).
+- Add basic docstrings for public functions and routes.
+- Use `Depends` for dependency injection.
+- Use async def in route handlers.
+
+## React + TypeScript (Frontend)
+- Use functional components and hooks (`useState`, `useEffect`, etc.).
+- Props and API responses should be strongly typed using TypeScript interfaces.
+- Avoid any `any` type unless absolutely necessary.
+- Keep components small and reusable.
+- Follow atomic design if possible (atoms, molecules, organisms).
+
+## SQLite (Database)
+- Use SQLAlchemy for Python DB interactions.
+- Keep schema definitions and migrations well-organized.
+
+## Documentation Rules
+- Every meaningful change must be followed by an update in the related `ai_workdone.md` or `README.md` file **summarizing what changed and why**, in **1-3 concise lines**.
+- add a comment like **vulnerability** or **scope for better implementation** wherever necessary
+
+

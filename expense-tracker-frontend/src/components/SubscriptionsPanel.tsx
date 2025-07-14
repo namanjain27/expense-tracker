@@ -106,8 +106,12 @@ const SubscriptionsPanel = forwardRef<SubscriptionsPanelRef>((_, ref) => {
     <Card sx={{ minWidth: 275, mb: 2 }}>
       <CardContent>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h5" component="div">
-            Active Subscriptions
+          <Typography variant="h5" component="div" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <img 
+                        src="/src/assets/colored icons/subscriptions.png" 
+                        alt="Subscriptions" 
+                        style={{ width: '50px', height: '50px' }}
+                    /> Subscriptions
           </Typography>
           <Button
             variant="contained"

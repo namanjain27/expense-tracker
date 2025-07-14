@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, BackgroundTasks
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, BackgroundTasks, Response, Request
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func
@@ -8,7 +8,7 @@ from dateutil.relativedelta import relativedelta
 from database import get_db, engine
 import models
 from pydantic import BaseModel, field_validator, EmailStr
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from openpyxl import Workbook
 import tempfile
 import os
@@ -21,12 +21,17 @@ import os
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 import atexit
-from service.mail_service import _send_monthly_report_logic, send_email, scheduled_report_job
+from service.mail_service import _send_monthly_report_logic, send_email, scheduled_report_job, send_password_reset_email
 from service import auth_service
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi import status
+import jinja2
 
 load_dotenv()
+
+# Setup Jinja2 for email templates
+template_loader = jinja2.FileSystemLoader(searchpath="./email_templates")
+template_env = jinja2.Environment(loader=template_loader)
 
 # Load the ML model
 model = joblib.load('categoryFinder.pkl')
@@ -37,6 +42,10 @@ models.Base.metadata.create_all(bind=engine)
 app = FastAPI(openapi_tags=[
     {"name": "Authentication", "description": "Operations related to user registration and login"},
     {"name": "Expenses", "description": "Manage user expenses"},
+    {"name": "Income", "description": "Manage user income records"},
+    {"name": "Savings", "description": "Manage user saving records"},
+    {"name": "Accounts", "description": "Manage user account balance"},
+    {"name": "Summary", "description": "Monthly summary and combined analytics"},
     {"name": "Recurring Expenses", "description": "Manage user recurring expenses/subscriptions"},
     {"name": "Budget", "description": "Manage user monthly budget and savings goal"},
     {"name": "Saving Goals", "description": "Manage user saving goals"},
@@ -101,6 +110,11 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
+class TokenWithRefresh(BaseModel):
+    access_token: str
+    token_type: str
+    # Note: refresh_token is sent as HttpOnly cookie, not in response body
+
 class RequestPasswordResetRequest(BaseModel):
     email: EmailStr
 
@@ -119,6 +133,26 @@ CATEGORIES = {
     7: "Health",
     8: "Savings",
     9: "Debt"
+}
+
+INCOME_CATEGORIES = {
+    1: "Salary",
+    2: "Interest",
+    3: "Gift",
+    4: "Matured Amount",
+    5: "Dividend",
+    6: "Stocks",
+    7: "Side Hustle",
+    8: "Others"
+}
+
+SAVING_CATEGORIES = {
+    1: "Stocks",
+    2: "PPF",
+    3: "Recurring deposit",
+    4: "Fixed Deposit",
+    5: "Mutual Fund",
+    6: "Others"
 }
 
 # Pydantic models for request/response
@@ -239,6 +273,93 @@ class Budget(BudgetBase):
 class CategoryPredictionRequest(BaseModel):
     name: str
 
+# Pydantic models for Income
+class IncomeBase(BaseModel):
+    name: str | None = None
+    amount: float
+    date: date
+    category_id: int
+    
+    @field_validator("date", mode="before")
+    def parse_datetime_to_date(cls, v):
+        if isinstance(v, str):
+            try:
+                return datetime.fromisoformat(v.replace("Z", "+00:00")).date()
+            except ValueError:
+                pass
+        elif isinstance(v, datetime):
+            return v.date()
+        return v
+
+    class Config:
+        orm_mode = True
+
+class IncomeCreate(IncomeBase):
+    pass
+
+class Income(IncomeBase):
+    id: int
+    category: str = ""
+    created_at: datetime
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        self.category = INCOME_CATEGORIES.get(self.category_id, "Unknown")
+
+# Pydantic models for Saving
+class SavingBase(BaseModel):
+    name: str | None = None
+    amount: float
+    date: date
+    category_id: int
+    
+    @field_validator("date", mode="before")
+    def parse_datetime_to_date(cls, v):
+        if isinstance(v, str):
+            try:
+                return datetime.fromisoformat(v.replace("Z", "+00:00")).date()
+            except ValueError:
+                pass
+        elif isinstance(v, datetime):
+            return v.date()
+        return v
+
+    class Config:
+        orm_mode = True
+
+class SavingCreate(SavingBase):
+    pass
+
+class Saving(SavingBase):
+    id: int
+    category: str = ""
+    created_at: datetime
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        self.category = SAVING_CATEGORIES.get(self.category_id, "Unknown")
+
+# Pydantic models for Account
+class AccountBase(BaseModel):
+    balance: float
+
+    @field_validator('balance')
+    def validate_balance(cls, v):
+        if v < 0:
+            raise ValueError('Balance cannot be negative')
+        return v
+
+    class Config:
+        orm_mode = True
+
+class AccountCreate(AccountBase):
+    pass
+
+class Account(AccountBase):
+    id: int
+    created_at: datetime
+    modified_at: datetime
+
 @app.post("/predict-category")
 def predict_category(request: CategoryPredictionRequest):
     try:
@@ -246,6 +367,15 @@ def predict_category(request: CategoryPredictionRequest):
         return {"category": predicted_category}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/categories", tags=["Utilities"])
+def get_all_categories():
+    """Get all available categories for expenses, income, and savings"""
+    return {
+        "expense_categories": CATEGORIES,
+        "income_categories": INCOME_CATEGORIES,
+        "saving_categories": SAVING_CATEGORIES
+    }
 
 @app.post("/upload/")
 async def upload_file(file: UploadFile = File(...)):
@@ -607,7 +737,7 @@ def get_subscriptions_due_tomorrow(db: Session = Depends(get_db), current_user: 
                 "due_period": {
                     "value": sub.due_period_value or 1,
                     "unit": sub.due_period_unit or "months"
-                }
+                },
             }
             due_subscriptions.append(subscription_dict)
     
@@ -834,6 +964,295 @@ def get_daily_expenses(month: int, year: int, db: Session = Depends(get_db), cur
         ]
     }
 
+# Income APIs
+@app.post("/income/", response_model=Income, tags=["Income"])
+def create_income(income: IncomeCreate, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
+    if income.category_id not in INCOME_CATEGORIES:
+        raise HTTPException(status_code=400, detail=f"Invalid category ID. Must be between 1 and {len(INCOME_CATEGORIES)}")
+    
+    db_income = models.Income(**income.dict(), user_id=current_user.id)
+    db.add(db_income)
+    db.commit()
+    db.refresh(db_income)
+    return Income(**db_income.__dict__)
+
+@app.get("/income/", response_model=List[Income], tags=["Income"])
+def read_incomes(month: int = None, year: int = None, skip: int = 0, limit: int = 100, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
+    # If month and year are provided, filter incomes for that month
+    query = db.query(models.Income).filter(models.Income.user_id == current_user.id)
+    if month is not None and year is not None:
+        start_date = date(year, month, 1)
+        if month == 12:
+            end_date = date(year + 1, 1, 1)
+        else:
+            end_date = date(year, month + 1, 1)
+        
+        query = query.filter(
+            models.Income.date >= start_date,
+            models.Income.date < end_date
+        )
+    incomes = query.offset(skip).limit(limit).all()
+    return [Income(**income.__dict__) for income in incomes]
+
+@app.delete("/income/{income_id}", tags=["Income"])
+def delete_income(income_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
+    income = db.query(models.Income).filter(models.Income.id == income_id, models.Income.user_id == current_user.id).first()
+    if income is None:
+        raise HTTPException(status_code=404, detail="Income not found or not authorized")
+    
+    message = f"Income on {income.date} for {INCOME_CATEGORIES[income.category_id]} amounting to {income.amount} deleted successfully"
+    db.delete(income)
+    db.commit()
+    return {"message": message}
+
+@app.get("/income/total", tags=["Income"])
+def get_total_income(month: int = None, year: int = None, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
+    # If month and year are provided, filter incomes for that month
+    query = db.query(models.Income).filter(models.Income.user_id == current_user.id)
+    if month is not None and year is not None:
+        start_date = date(year, month, 1)
+        if month == 12:
+            end_date = date(year + 1, 1, 1)
+        else:
+            end_date = date(year, month + 1, 1)
+        
+        # Get overall total for the month
+        total = query.filter(
+            models.Income.date >= start_date,
+            models.Income.date < end_date
+        ).with_entities(func.sum(models.Income.amount)).scalar()
+        
+        # Get category-wise totals for the month
+        category_totals = query.with_entities(
+            models.Income.category_id,
+            func.sum(models.Income.amount).label('total')
+        ).filter(
+            models.Income.date >= start_date,
+            models.Income.date < end_date
+        ).group_by(models.Income.category_id).all()
+    else:
+        # Get overall total
+        total = query.with_entities(func.sum(models.Income.amount)).scalar()
+        
+        # Get category-wise totals
+        category_totals = query.with_entities(
+            models.Income.category_id,
+            func.sum(models.Income.amount).label('total')
+        ).group_by(models.Income.category_id).all()
+    
+    # Convert category IDs to names and format the response
+    category_breakdown = {
+        INCOME_CATEGORIES[cat_id]: amount for cat_id, amount in category_totals
+    }
+    
+    return {
+        "overall_total": total if total else 0,
+        "category_breakdown": category_breakdown
+    }
+
+# Saving APIs
+@app.post("/savings/", response_model=Saving, tags=["Savings"])
+def create_saving(saving: SavingCreate, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
+    if saving.category_id not in SAVING_CATEGORIES:
+        raise HTTPException(status_code=400, detail=f"Invalid category ID. Must be between 1 and {len(SAVING_CATEGORIES)}")
+    
+    db_saving = models.Saving(**saving.dict(), user_id=current_user.id)
+    db.add(db_saving)
+    db.commit()
+    db.refresh(db_saving)
+    return Saving(**db_saving.__dict__)
+
+@app.get("/savings/", response_model=List[Saving], tags=["Savings"])
+def read_savings(month: int = None, year: int = None, skip: int = 0, limit: int = 100, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
+    # If month and year are provided, filter savings for that month
+    query = db.query(models.Saving).filter(models.Saving.user_id == current_user.id)
+    if month is not None and year is not None:
+        start_date = date(year, month, 1)
+        if month == 12:
+            end_date = date(year + 1, 1, 1)
+        else:
+            end_date = date(year, month + 1, 1)
+        
+        query = query.filter(
+            models.Saving.date >= start_date,
+            models.Saving.date < end_date
+        )
+    savings = query.offset(skip).limit(limit).all()
+    return [Saving(**saving.__dict__) for saving in savings]
+
+@app.delete("/savings/{saving_id}", tags=["Savings"])
+def delete_saving(saving_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
+    saving = db.query(models.Saving).filter(models.Saving.id == saving_id, models.Saving.user_id == current_user.id).first()
+    if saving is None:
+        raise HTTPException(status_code=404, detail="Saving not found or not authorized")
+    
+    message = f"Saving on {saving.date} for {SAVING_CATEGORIES[saving.category_id]} amounting to {saving.amount} deleted successfully"
+    db.delete(saving)
+    db.commit()
+    return {"message": message}
+
+@app.get("/savings/total", tags=["Savings"])
+def get_total_savings(month: int = None, year: int = None, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
+    # If month and year are provided, filter savings for that month
+    query = db.query(models.Saving).filter(models.Saving.user_id == current_user.id)
+    if month is not None and year is not None:
+        start_date = date(year, month, 1)
+        if month == 12:
+            end_date = date(year + 1, 1, 1)
+        else:
+            end_date = date(year, month + 1, 1)
+        
+        # Get overall total for the month
+        total = query.filter(
+            models.Saving.date >= start_date,
+            models.Saving.date < end_date
+        ).with_entities(func.sum(models.Saving.amount)).scalar()
+        
+        # Get category-wise totals for the month
+        category_totals = query.with_entities(
+            models.Saving.category_id,
+            func.sum(models.Saving.amount).label('total')
+        ).filter(
+            models.Saving.date >= start_date,
+            models.Saving.date < end_date
+        ).group_by(models.Saving.category_id).all()
+    else:
+        # Get overall total
+        total = query.with_entities(func.sum(models.Saving.amount)).scalar()
+        
+        # Get category-wise totals
+        category_totals = query.with_entities(
+            models.Saving.category_id,
+            func.sum(models.Saving.amount).label('total')
+        ).group_by(models.Saving.category_id).all()
+    
+    # Convert category IDs to names and format the response
+    category_breakdown = {
+        SAVING_CATEGORIES[cat_id]: amount for cat_id, amount in category_totals
+    }
+    
+    return {
+        "overall_total": total if total else 0,
+        "category_breakdown": category_breakdown
+    }
+
+# Account APIs
+@app.post("/accounts/", response_model=Account, tags=["Accounts"])
+def create_account(account: AccountCreate, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
+    # Check if user already has an account
+    existing_account = db.query(models.Account).filter(models.Account.user_id == current_user.id).first()
+    if existing_account:
+        raise HTTPException(status_code=400, detail="User already has an account. Use PUT to update balance.")
+    
+    db_account = models.Account(**account.dict(), user_id=current_user.id)
+    db.add(db_account)
+    db.commit()
+    db.refresh(db_account)
+    return Account(**db_account.__dict__)
+
+@app.get("/accounts/", response_model=List[Account], tags=["Accounts"])
+def get_accounts(db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
+    accounts = db.query(models.Account).filter(models.Account.user_id == current_user.id).all()
+    return [Account(**account.__dict__) for account in accounts]
+
+@app.put("/accounts/{account_id}", response_model=Account, tags=["Accounts"])
+def update_account_balance(account_id: int, account: AccountCreate, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
+    db_account = db.query(models.Account).filter(models.Account.id == account_id, models.Account.user_id == current_user.id).first()
+    if not db_account:
+        raise HTTPException(status_code=404, detail="Account not found or not authorized")
+    
+    db_account.balance = account.balance
+    db_account.modified_at = datetime.now()
+    db.commit()
+    db.refresh(db_account)
+    return Account(**db_account.__dict__)
+
+# Monthly Summary API
+@app.get("/monthly-summary", tags=["Summary"])
+def get_monthly_summary(month: int, year: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
+    # Calculate start and end dates for the month
+    start_date = date(year, month, 1)
+    if month == 12:
+        end_date = date(year + 1, 1, 1)
+    else:
+        end_date = date(year, month + 1, 1)
+    
+    # Get income totals
+    income_total = db.query(func.sum(models.Income.amount)).filter(
+        models.Income.user_id == current_user.id,
+        models.Income.date >= start_date,
+        models.Income.date < end_date
+    ).scalar() or 0
+    
+    # Get expense totals
+    expense_total = db.query(func.sum(models.Expense.amount)).filter(
+        models.Expense.user_id == current_user.id,
+        models.Expense.date >= start_date,
+        models.Expense.date < end_date
+    ).scalar() or 0
+    
+    # Get saving totals
+    saving_total = db.query(func.sum(models.Saving.amount)).filter(
+        models.Saving.user_id == current_user.id,
+        models.Saving.date >= start_date,
+        models.Saving.date < end_date
+    ).scalar() or 0
+    
+    # Calculate net balance for the month (income - expenses - savings)
+    net_balance = income_total - expense_total - saving_total
+    
+    # Get category breakdown for expenses
+    expense_categories = db.query(
+        models.Expense.category_id,
+        func.sum(models.Expense.amount).label('total')
+    ).filter(
+        models.Expense.user_id == current_user.id,
+        models.Expense.date >= start_date,
+        models.Expense.date < end_date
+    ).group_by(models.Expense.category_id).all()
+    
+    # Get category breakdown for income
+    income_categories = db.query(
+        models.Income.category_id,
+        func.sum(models.Income.amount).label('total')
+    ).filter(
+        models.Income.user_id == current_user.id,
+        models.Income.date >= start_date,
+        models.Income.date < end_date
+    ).group_by(models.Income.category_id).all()
+    
+    # Get category breakdown for savings
+    saving_categories = db.query(
+        models.Saving.category_id,
+        func.sum(models.Saving.amount).label('total')
+    ).filter(
+        models.Saving.user_id == current_user.id,
+        models.Saving.date >= start_date,
+        models.Saving.date < end_date
+    ).group_by(models.Saving.category_id).all()
+    
+    return {
+        "month": month,
+        "year": year,
+        "totals": {
+            "income": float(income_total),
+            "expenses": float(expense_total),
+            "savings": float(saving_total),
+            "net_balance": float(net_balance)
+        },
+        "breakdowns": {
+            "expenses": {
+                CATEGORIES[cat_id]: float(amount) for cat_id, amount in expense_categories
+            },
+            "income": {
+                INCOME_CATEGORIES[cat_id]: float(amount) for cat_id, amount in income_categories
+            },
+            "savings": {
+                SAVING_CATEGORIES[cat_id]: float(amount) for cat_id, amount in saving_categories
+            }
+        }
+    }
+
 @app.post("/send-monthly-report")
 def send_monthly_report(background_tasks: BackgroundTasks, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
     today = date.today()
@@ -845,10 +1264,16 @@ def send_monthly_report(background_tasks: BackgroundTasks, db: Session = Depends
 
     report_data = _send_monthly_report_logic(db, year, month, current_user.id)
     if report_data:
-        background_tasks.add_task(send_email, current_user.email, report_data["subject"], report_data["body"])
-        return {"message": "Monthly report has been queued."}
-    
+        background_tasks.add_task(send_email, current_user.email, report_data["subject"], report_data["body"], is_html=True)
+        return {"message": "Monthly report has been queued."}    
     return {"message": "No report was generated."}
+
+@app.get("/monthly-report-html", response_class=HTMLResponse)
+def get_monthly_report_html(month: int, year: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
+    report_data = _send_monthly_report_logic(db, year, month, current_user.id)
+    if report_data:
+        return HTMLResponse(content=report_data["body"])
+    raise HTTPException(status_code=404, detail="Monthly report not found or could not be generated.")
 
 class SavingGoalBase(BaseModel):
     name: str
@@ -867,6 +1292,7 @@ class SavingGoal(SavingGoalBase):
 
 class AddAmountRequest(BaseModel):
     amount: float
+
 
 @app.post("/saving-goals/", response_model=SavingGoal)
 def create_saving_goal(goal: SavingGoalCreate, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
@@ -928,12 +1354,12 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
     db.refresh(db_user)
     return db_user
 
-@app.post("/auth/token", response_model=Token)
-def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+@app.post("/auth/token", response_model=TokenWithRefresh)
+def login_for_access_token(response: Response, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == form_data.username).first()
     if not user or not auth_service.verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=status.HTTP_403_FORBIDDEN,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
@@ -943,11 +1369,77 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
         data={"sub": str(user.id)}, expires_delta=access_token_expires
     )
     
+    # Create refresh token
+    refresh_token = auth_service.create_refresh_token(db, user.id)
+    
+    # Set refresh token as HttpOnly cookie
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        max_age=auth_service.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,  # Convert days to seconds
+        httponly=True,
+        secure=True,  # Use only over HTTPS in production
+        samesite="lax"
+    )
+    
     # Update last login time
     user.last_login = datetime.now()
     db.commit()
     
     return {"access_token": access_token, "token_type": "bearer"}
+
+@app.post("/auth/refresh", response_model=Token, tags=["Authentication"])
+def refresh_access_token(request: Request, response: Response, db: Session = Depends(get_db)):
+    """
+    Refresh access token using refresh token from HttpOnly cookie.
+    Implements token rotation - returns new access token and sets new refresh token cookie.
+    """
+    refresh_token = request.cookies.get("refresh_token")
+    if not refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token not found"
+        )
+    
+    # Validate the refresh token and get user
+    user = auth_service.validate_refresh_token(db, refresh_token)
+    
+    # Revoke the old refresh token (token rotation)
+    auth_service.revoke_refresh_token(db, refresh_token)
+    
+    # Create new access token
+    access_token_expires = timedelta(minutes=auth_service.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = auth_service.create_access_token(
+        data={"sub": str(user.id)}, expires_delta=access_token_expires
+    )
+    
+    # Create new refresh token (token rotation)
+    new_refresh_token = auth_service.create_refresh_token(db, user.id)
+    
+    # Set new refresh token as HttpOnly cookie
+    response.set_cookie(
+        key="refresh_token",
+        value=new_refresh_token,
+        max_age=auth_service.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        httponly=True,
+        secure=True,
+        samesite="lax"
+    )
+    
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@app.post("/auth/logout", tags=["Authentication"])
+def logout(request: Request, response: Response, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
+    """
+    Logout user by revoking all refresh tokens and clearing cookies.
+    """
+    # Revoke all refresh tokens for the user
+    auth_service.revoke_all_user_refresh_tokens(db, current_user.id)
+    
+    # Clear the refresh token cookie
+    response.delete_cookie(key="refresh_token", httponly=True, secure=True, samesite="lax")
+    
+    return {"message": "Successfully logged out"}
 
 @app.post("/auth/request-password-reset", status_code=status.HTTP_200_OK)
 def request_password_reset(request: RequestPasswordResetRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
@@ -957,13 +1449,10 @@ def request_password_reset(request: RequestPasswordResetRequest, background_task
         token = auth_service.generate_password_reset_token(db, user.id)
         reset_link = f"http://localhost:5173/reset-password?token={token}" # Frontend reset password URL
         
-        # Send email with reset link - this function needs to be added in mail_service.py
-        background_tasks.add_task(send_email,
+        background_tasks.add_task(send_password_reset_email,
                                   user.email,
-                                  "Password Reset Request for TrackX",
-                                  f"Click the following link to reset your password: {reset_link}")
+                                  reset_link)
     
-    # Always return a generic success message for security reasons (don't reveal if email exists)
     return {"message": "If an account with that email exists, a password reset link has been sent to your inbox."}
 
 @app.post("/auth/reset-password", status_code=status.HTTP_200_OK)
@@ -976,4 +1465,15 @@ def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db))
     db.refresh(user)
 
     return {"message": "Your password has been reset successfully."}
+
+@app.get("/auth/me", response_model=User, tags=["Authentication"])
+def get_current_user_info(current_user: models.User = Depends(auth_service.get_current_user)):
+    """Get current authenticated user information"""
+    return User(
+        id=current_user.id,
+        email=current_user.email,
+        name=current_user.name,
+        created_at=current_user.created_at,
+        last_login=current_user.last_login
+    )
 

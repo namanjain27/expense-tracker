@@ -7,14 +7,16 @@ import {
     Button,
     Typography
 } from '@mui/material';
-import { Expense } from '../types/expense';
+import { Expense, Income, Saving, RecordType } from '../types/records';
 import { ThemeContext } from './Dashboard';
+
+type TransactionRecord = (Expense | Income | Saving) & { type: RecordType };
 
 interface DeleteExpenseDialogProps {
     open: boolean;
     onClose: () => void;
     onDelete: (id: number) => void;
-    expense: Expense | null;
+    expense: TransactionRecord | null;
 }
 
 const DeleteExpenseDialog: React.FC<DeleteExpenseDialogProps> = ({
@@ -41,11 +43,11 @@ const DeleteExpenseDialog: React.FC<DeleteExpenseDialogProps> = ({
                 color: isDarkMode ? '#ffffff' : undefined,
                 borderBottom: `1px solid ${isDarkMode ? '#333333' : '#e0e0e0'}`
             }}>
-                Delete Expense
+                Delete {expense.type}
             </DialogTitle>
             <DialogContent sx={{ mt: 2 }}>
                 <Typography sx={{ color: isDarkMode ? '#ffffff' : undefined }}>
-                    Are you sure you want to delete the expense "{expense.name}"?
+                    Are you sure you want to delete the {expense.type.toLowerCase()} "{expense.name}"?
                 </Typography>
             </DialogContent>
             <DialogActions sx={{ 
