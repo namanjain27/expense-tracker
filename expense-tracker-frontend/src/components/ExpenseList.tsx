@@ -15,23 +15,29 @@ import {
     TextField
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { Expense } from '../types/expense';
+import { Expense, Income, Saving, RecordType } from '../types/records';
 import { ThemeContext } from './Dashboard';
 
-type SortField = 'date' | 'category' | 'intention' | 'amount';
+type SortField = 'date' | 'category' | 'type' | 'amount';
 type SortOrder = 'asc' | 'desc' | 'group';
 
-interface ExpenseListProps {
+type TransactionRecord = (Expense | Income | Saving) & { type: RecordType };
+
+interface MonthlyTransactionListProps {
     expenses: Expense[];
-    onSelectExpense: (expense: Expense) => void;
-    selectedExpense: Expense | null;
-    onDeleteClick: (expense: Expense) => void;
+    incomes: Income[];
+    savings: Saving[];
+    onSelectRecord: (record: TransactionRecord) => void;
+    selectedRecord: TransactionRecord | null;
+    onDeleteClick: (record: TransactionRecord) => void;
 }
 
-const ExpenseList: React.FC<ExpenseListProps> = ({ 
+const MonthlyTransactionList: React.FC<MonthlyTransactionListProps> = ({ 
     expenses, 
-    onSelectExpense, 
-    selectedExpense,
+    incomes,
+    savings,
+    onSelectRecord, 
+    selectedRecord,
     onDeleteClick 
 }) => {
     const { isDarkMode } = useContext(ThemeContext);
@@ -42,30 +48,38 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
     const handleSort = (field: SortField) => {
         if (field === sortField) {
             // Cycle through sort orders
-            if (field === 'category' || field === 'intention') {
+            if (field === 'category' || field === 'type') {
                 setSortOrder(sortOrder === 'asc' ? 'group' : 'asc');
             } else {
                 setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
             }
         } else {
             setSortField(field);
-            setSortOrder(field === 'category' || field === 'intention' ? 'group' : 'desc');
+            setSortOrder(field === 'category' || field === 'type' ? 'group' : 'desc');
         }
     };
 
-    const sortedExpenses = useMemo(() => {
-        let sorted = [...expenses];
+    const allRecords = useMemo(() => {
+        const expenseRecords: TransactionRecord[] = expenses.map(expense => ({ ...expense, type: 'Expense' as RecordType }));
+        const incomeRecords: TransactionRecord[] = incomes.map(income => ({ ...income, type: 'Income' as RecordType }));
+        const savingRecords: TransactionRecord[] = savings.map(saving => ({ ...saving, type: 'Saving' as RecordType }));
+        
+        return [...expenseRecords, ...incomeRecords, ...savingRecords];
+    }, [expenses, incomes, savings]);
 
-        if (sortOrder === 'group' && (sortField === 'category' || sortField === 'intention')) {
+    const sortedRecords = useMemo(() => {
+        let sorted = [...allRecords];
+
+        if (sortOrder === 'group' && (sortField === 'category' || sortField === 'type')) {
             // Group by the selected field
-            const groups = sorted.reduce((acc, expense) => {
-                const key = expense[sortField];
+            const groups = sorted.reduce((acc, record) => {
+                const key = record[sortField];
                 if (!acc[key]) {
                     acc[key] = [];
                 }
-                acc[key].push(expense);
+                acc[key].push(record);
                 return acc;
-            }, {} as Record<string, Expense[]>);
+            }, {} as Record<string, TransactionRecord[]>);
 
             // Sort groups by key
             const sortedGroups = Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
@@ -82,7 +96,7 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
                         comparison = a.amount - b.amount;
                         break;
                     case 'category':
-                    case 'intention':
+                    case 'type':
                         comparison = a[sortField].localeCompare(b[sortField]);
                         break;
                 }
@@ -91,17 +105,17 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
         }
 
         return sorted;
-    }, [expenses, sortField, sortOrder]);
+    }, [allRecords, sortField, sortOrder]);
 
-    const filteredExpenses = useMemo(() => {
-        if (!searchQuery) return sortedExpenses;
-        return sortedExpenses.filter(expense => {
-            const name = expense.name || '';
-            const amount = expense.amount != null ? expense.amount.toString() : '';
+    const filteredRecords = useMemo(() => {
+        if (!searchQuery) return sortedRecords;
+        return sortedRecords.filter(record => {
+            const name = record.name || '';
+            const amount = record.amount != null ? record.amount.toString() : '';
             return name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                    amount == searchQuery;
         });
-    }, [sortedExpenses, searchQuery]);
+    }, [sortedRecords, searchQuery]);
 
     // const getSortLabel = (field: SortField) => {
     //     if (field !== sortField) return 'Sort';
@@ -116,7 +130,7 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
                     Monthly Transactions
                 </Typography>
                 <TextField
-                    label="Search name or amount of expense"
+                    label="Search name or amount of transaction"
                     variant="outlined"
                     sx={{ width: '350px' }}
                     size="small"
@@ -128,8 +142,8 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
                 component={Paper} 
                 sx={{ 
                     flex: 1,
-                    maxHeight: filteredExpenses.length > 10 ? '600px' : 'fit-content',
-                    overflow: filteredExpenses.length > 10 ? 'auto' : 'visible',
+                    maxHeight: filteredRecords.length > 10 ? '600px' : 'fit-content',
+                    overflow: filteredRecords.length > 10 ? 'auto' : 'visible',
                     backgroundColor: isDarkMode ? '#1e1e1e' : '#ffffff',
                     '&::-webkit-scrollbar': {
                         width: '8px',
@@ -171,11 +185,11 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
                             </TableCell>
                             <TableCell sx={{ backgroundColor: isDarkMode ? '#2d2d2d' : undefined }}>
                                 <TableSortLabel
-                                    active={sortField === 'intention'}
+                                    active={sortField === 'type'}
                                     direction={sortOrder === 'desc' ? 'desc' : 'asc'}
-                                    onClick={() => handleSort('intention')}
+                                    onClick={() => handleSort('type')}
                                 >
-                                    Intention
+                                    Type
                                 </TableSortLabel>
                             </TableCell>
                             <TableCell align="right" sx={{ backgroundColor: isDarkMode ? '#2d2d2d' : undefined }}>
@@ -191,64 +205,83 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {filteredExpenses.map((expense, index) => (
-                            <React.Fragment key={expense.id}>
-                                {((sortField === 'category' || sortField === 'intention') && 
-                                  sortOrder === 'group' && 
-                                  (index === 0 || expense[sortField] !== filteredExpenses[index - 1][sortField])) && (
-                                    <TableRow>
-                                        <TableCell 
-                                            colSpan={6} 
-                                            sx={{ 
-                                                backgroundColor: isDarkMode ? '#2d2d2d' : '#f5f5f5',
-                                                fontWeight: 'bold',
-                                                color: isDarkMode ? '#ffffff' : undefined
-                                            }}
-                                        >
-                                            {expense[sortField]}
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                                <TableRow
-                                    hover
-                                    onClick={() => onSelectExpense(expense)}
-                                    selected={selectedExpense?.id === expense.id}
-                                    sx={{ 
-                                        cursor: 'pointer',
-                                        '&:hover': {
-                                            backgroundColor: isDarkMode ? '#2d2d2d' : undefined
-                                        },
-                                        '&.Mui-selected': {
-                                            backgroundColor: isDarkMode ? '#1a1a1a' : undefined
-                                        }
-                                    }}
-                                >
-                                    <TableCell>{new Date(expense.date).toLocaleDateString('en-GB')}</TableCell>
-                                    <TableCell>{expense.name}</TableCell>
-                                    <TableCell>{expense.category}</TableCell>
-                                    <TableCell>{expense.intention}</TableCell>
-                                    <TableCell align="right">₹{expense.amount.toFixed(2)}</TableCell>
-                                    <TableCell align="center">
-                                        <Tooltip title="Delete Expense">
-                                            <IconButton
-                                                size="small"
-                                                color="error"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    onDeleteClick(expense);
+                        {filteredRecords.map((record, index) => {
+                            const getRowColor = (type: RecordType) => {
+                                switch (type) {
+                                    case 'Income':
+                                        return { color: '#4CAF50' };
+                                    case 'Expense':
+                                        return { color: '#FF5252' };
+                                    case 'Saving':
+                                        return { color: '#36A2EB' };
+                                    default:
+                                        return {};
+                                }
+                            };
+
+                            return (
+                                <React.Fragment key={`${record.type}-${record.id}`}>
+                                    {((sortField === 'category' || sortField === 'type') && 
+                                      sortOrder === 'group' && 
+                                      (index === 0 || record[sortField] !== filteredRecords[index - 1][sortField])) && (
+                                        <TableRow>
+                                            <TableCell 
+                                                colSpan={6} 
+                                                sx={{ 
+                                                    backgroundColor: isDarkMode ? '#2d2d2d' : '#f5f5f5',
+                                                    fontWeight: 'bold',
+                                                    color: isDarkMode ? '#ffffff' : undefined
                                                 }}
                                             >
-                                                <DeleteIcon />
-                                            </IconButton>
-                                        </Tooltip>
-                                    </TableCell>
-                                </TableRow>
-                            </React.Fragment>
-                        ))}
-                        {filteredExpenses.length === 0 && (
+                                                {record[sortField]}
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                    <TableRow
+                                        hover
+                                        onClick={() => onSelectRecord(record)}
+                                        selected={selectedRecord?.id === record.id && selectedRecord?.type === record.type}
+                                        sx={{ 
+                                            cursor: 'pointer',
+                                            '&:hover': {
+                                                backgroundColor: isDarkMode ? '#2d2d2d' : undefined
+                                            },
+                                            '&.Mui-selected': {
+                                                backgroundColor: isDarkMode ? '#1a1a1a' : undefined
+                                            }
+                                        }}
+                                    >
+                                        <TableCell>{new Date(record.date).toLocaleDateString('en-GB')}</TableCell>
+                                        <TableCell>{record.name}</TableCell>
+                                        <TableCell>{record.category}</TableCell>
+                                        <TableCell sx={getRowColor(record.type)}>
+                                            <strong>{record.type}</strong>
+                                        </TableCell>
+                                        <TableCell align="right" sx={getRowColor(record.type)}>
+                                            <strong>₹{record.amount.toFixed(2)}</strong>
+                                        </TableCell>
+                                        <TableCell align="center">
+                                            <Tooltip title={`Delete ${record.type}`}>
+                                                <IconButton
+                                                    size="small"
+                                                    color="error"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onDeleteClick(record);
+                                                    }}
+                                                >
+                                                    <DeleteIcon />
+                                                </IconButton>
+                                            </Tooltip>
+                                        </TableCell>
+                                    </TableRow>
+                                </React.Fragment>
+                            );
+                        })}
+                        {filteredRecords.length === 0 && (
                             <TableRow>
                                 <TableCell colSpan={6} align="center">
-                                    No expenses found
+                                    No transactions found
                                 </TableCell>
                             </TableRow>
                         )}
@@ -259,4 +292,4 @@ const ExpenseList: React.FC<ExpenseListProps> = ({
     );
 };
 
-export default ExpenseList; 
+export default MonthlyTransactionList; 

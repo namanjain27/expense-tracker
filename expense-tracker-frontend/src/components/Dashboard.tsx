@@ -2,13 +2,14 @@ import React, { useEffect, useState, useRef, createContext } from 'react';
 import { Box, Button, Container, Paper, Typography, Tooltip } from '@mui/material';
 import { Doughnut, Line, Pie } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip as ChartTooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, Title } from 'chart.js';
-import { Expense, TotalExpenses } from '../types/expense';
+import { TotalExpenses } from '../types/expense';
+import { Expense, Income, Saving, RecordType } from '../types/records';
 import { api, DailyExpense } from '../services/api';
 import { User } from '../types/user';
-import AddExpenseDialog from './AddExpenseDialog';
+import AddRecordDialog from './AddRecordDialog';
 import TransactionSummaryDialog from './TransactionSummaryDialog';
 import DeleteExpenseDialog from './DeleteExpenseDialog';
-import ExpenseList from './ExpenseList';
+import MonthlyTransactionList from './ExpenseList';
 import SubscriptionsPanel, { SubscriptionsPanelRef } from './SubscriptionsPanel';
 import BudgetDialog from './BudgetDialog';
 import BudgetComparison from './BudgetComparison';
@@ -18,6 +19,8 @@ import SavingGoalsPanel from './SavingGoalsPanel';
 import MonthlyReportDialog from './MonthlyReportDialog';
 import AddSubscriptionDialog from './AddSubscriptionDialog';
 import NavigationBar from './NavigationBar';
+import BalanceComponent from './BalanceComponent';
+import TriColorChart from './TriColorChart';
 
 // Create theme context
 export const ThemeContext = createContext({
@@ -45,10 +48,12 @@ ChartJS.register(ArcElement, ChartTooltip, Legend, CategoryScale, LinearScale, P
 const Dashboard: React.FC = () => {
     const [isDarkMode, setIsDarkMode] = useState(true);
     const [expenses, setExpenses] = useState<Expense[]>([]);
+    const [incomes, setIncomes] = useState<Income[]>([]);
+    const [savings, setSavings] = useState<Saving[]>([]);
     const [totals, setTotals] = useState<TotalExpenses | null>(null);
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-    const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
+    const [selectedRecord, setSelectedRecord] = useState<(Expense | Income | Saving) & { type: RecordType } | null>(null);
     const subscriptionsPanelRef = useRef<SubscriptionsPanelRef>(null);
     const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -129,14 +134,24 @@ const Dashboard: React.FC = () => {
 
     const fetchData = async () => {
         try {
-            const [expensesData, totalsData] = await Promise.all([
+            const [expensesData, incomesData, savingsData, totalsData] = await Promise.all([
                 api.getExpenses(selectedMonth, selectedYear),
+                api.getIncomes(selectedMonth, selectedYear),
+                api.getSavings(selectedMonth, selectedYear),
                 api.getTotalExpenses(selectedMonth, selectedYear)
             ]);
             const sortedExpenses = expensesData.sort((a, b) => 
                 new Date(b.date).getTime() - new Date(a.date).getTime()
             );
+            const sortedIncomes = incomesData.sort((a, b) => 
+                new Date(b.date).getTime() - new Date(a.date).getTime()
+            );
+            const sortedSavings = savingsData.sort((a, b) => 
+                new Date(b.date).getTime() - new Date(a.date).getTime()
+            );
             setExpenses(sortedExpenses);
+            setIncomes(sortedIncomes);
+            setSavings(sortedSavings);
             setTotals(totalsData);
         } catch (error) {
             console.error('Error fetching data:', error);
@@ -207,7 +222,7 @@ const Dashboard: React.FC = () => {
         fetchDailyExpenses();
     }, [selectedMonth, selectedYear]);
 
-    const handleAddExpense = async (expense: Omit<Expense, 'id' | 'category'>) => {
+    const handleAddExpense = async (expense: Omit<Expense, 'id' | 'category' | 'created_at'>) => {
         try {
             await api.createExpense(expense);
             // Reload all data
@@ -224,8 +239,38 @@ const Dashboard: React.FC = () => {
         }
     };
 
+    const handleAddIncome = async (income: Omit<Income, 'id' | 'category' | 'created_at'>) => {
+        try {
+            await api.createIncome(income);
+            // Reload data (you may want to add income-specific data fetching here)
+            await Promise.all([
+                fetchData(),
+                fetchDailyExpenses()
+            ]);
+            setRefreshTrigger(prev => prev + 1);
+            setIsAddDialogOpen(false);
+        } catch (error) {
+            console.error('Error adding income:', error);
+        }
+    };
+
+    const handleAddSaving = async (saving: Omit<Saving, 'id' | 'category' | 'created_at'>) => {
+        try {
+            await api.createSaving(saving);
+            // Reload data (you may want to add saving-specific data fetching here)
+            await Promise.all([
+                fetchData(),
+                fetchDailyExpenses()
+            ]);
+            setRefreshTrigger(prev => prev + 1);
+            setIsAddDialogOpen(false);
+        } catch (error) {
+            console.error('Error adding saving:', error);
+        }
+    };
+
     // New handler for converting expense to subscription
-    const handleConverttoSubscription = (expenseData: Omit<Expense, 'id' | 'category'>) => {
+    const handleConverttoSubscription = (expenseData: Omit<Expense, 'id' | 'category' | 'created_at'>) => {
         // Pre-fill subscription dialog with expense data
         setInitialSubscriptionData({
             name: expenseData.name,
@@ -241,9 +286,21 @@ const Dashboard: React.FC = () => {
         setIsAddSubscriptionDialogOpen(true);
     };
 
-    const handleDeleteExpense = async (id: number) => {
+    const handleDeleteRecord = async (id: number, type: string) => {
         try {
-            await api.deleteExpense(id);
+            switch (type) {
+                case 'Expense':
+                    await api.deleteExpense(id);
+                    break;
+                case 'Income':
+                    await api.deleteIncome(id);
+                    break;
+                case 'Saving':
+                    await api.deleteSaving(id);
+                    break;
+                default:
+                    throw new Error(`Unknown record type: ${type}`);
+            }
             // Reload all data
             await Promise.all([
                 fetchData(),
@@ -252,14 +309,14 @@ const Dashboard: React.FC = () => {
             ]);
             setRefreshTrigger(prev => prev + 1);  // Increment refresh trigger
             setIsDeleteDialogOpen(false);
-            setSelectedExpense(null);
+            setSelectedRecord(null);
         } catch (error) {
-            console.error('Error deleting expense:', error);
+            console.error(`Error deleting ${type.toLowerCase()}:`, error);
         }
     };
 
-    const handleDeleteClick = (expense: Expense) => {
-        setSelectedExpense(expense);
+    const handleDeleteClick = (record: (Expense | Income | Saving) & { type: RecordType }) => {
+        setSelectedRecord(record);
         setIsDeleteDialogOpen(true);
     };
 
@@ -457,6 +514,10 @@ const Dashboard: React.FC = () => {
         }
     };
 
+    const handleExportExpenses = () => {
+        api.exportExpenses();
+    };
+
     const handleShowMonthlyReport = async () => {
         setEmailSendSuccess(false); // Reset email sent status when opening report
         setReportLoading(true);
@@ -546,7 +607,113 @@ const Dashboard: React.FC = () => {
                             {months[selectedMonth - 1]} - Budget
                         </Button>
                     </Box>
+                    
                     <Box sx={{ display: 'flex', gap: 3, flexDirection: 'column' }}>
+                        {/* Balance and Actions Section */}
+                        <Box sx={{ display: 'flex', gap: 3, alignItems: 'flex-start' }}>
+                            {/* Balance Component */}
+                            <BalanceComponent refreshTrigger={refreshTrigger} />
+                            
+                            {/* Actions Panel */}
+                            <Paper 
+                                ref={actionsRef} 
+                                sx={{ 
+                                    p: 3, 
+                                    scrollMarginTop: '80px',
+                                    flex: 1,
+                                    borderRadius: 4,
+                                    background: isDarkMode 
+                                        ? 'linear-gradient(135deg, #2c2c2c 0%, #1a1a1a 100%)'
+                                        : 'linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%)',
+                                    border: `2px solid ${isDarkMode ? '#444444' : '#cccccc'}`
+                                }}
+                            >
+                                <Typography variant="h6" sx={{ mb: 2, color: isDarkMode ? '#ffffff' : '#333333' }}>
+                                    Actions
+                                </Typography>
+                                <Box sx={{ 
+                                    display: 'grid', 
+                                    gridTemplateColumns: 'repeat(4, 1fr)', 
+                                    gap: 2,
+                                    maxWidth: '800px'
+                                }}>
+                                    <Button
+                                        variant="contained"
+                                        onClick={() => setIsAddDialogOpen(true)}
+                                        sx={{ 
+                                            aspectRatio: '3/2',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontSize: '0.875rem'
+                                        }}
+                                    >
+                                        Add Record
+                                    </Button>
+                                    <Tooltip title="Download all expenses as Excel file">
+                                        <Button
+                                            variant="contained"
+                                            onClick={handleExportExpenses}
+                                            color="secondary"
+                                            sx={{ 
+                                                aspectRatio: '3/2',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                fontSize: '0.875rem'
+                                            }}
+                                        >
+                                            Export Data
+                                        </Button>
+                                    </Tooltip>
+                                    <Tooltip title="Extract data from any bank statement in .xls or .xlsx">
+                                        <Button
+                                            variant="contained"
+                                            onClick={() => fileInputRef.current?.click()}
+                                            disabled={uploading}
+                                            color="info"
+                                            sx={{ 
+                                                aspectRatio: '3/2',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                fontSize: '0.875rem'
+                                            }}
+                                        >
+                                            {uploading ? 'Uploading...' : 'Import Transactions'}
+                                        </Button>
+                                    </Tooltip>
+                                    <Tooltip title={totals?.overall_total === 0 ? "No expenses to show this month" : ""}>
+                                        <span>
+                                            <Button
+                                                variant="contained"
+                                                onClick={handleShowMonthlyReport}
+                                                disabled={reportLoading || (totals?.overall_total === 0)}
+                                                color="success"
+                                                sx={{ 
+                                                    aspectRatio: '3/2',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    fontSize: '0.875rem',
+                                                    width: '100%'
+                                                }}
+                                            >
+                                                {reportLoading ? 'Loading Report...' : 'Show Monthly Report'}
+                                            </Button>
+                                        </span>
+                                    </Tooltip>
+                                </Box>
+                                {uploadError && <Typography color="error" sx={{ mt: 2 }}>{uploadError}</Typography>}
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    onChange={handleFileChange}
+                                    style={{ display: 'none' }}
+                                    accept=".xls,.xlsx"
+                                />
+                            </Paper>
+                        </Box>
                         {/* 2x2 Grid for Charts */}
                         <Box 
                             ref={chartsRef}
@@ -557,6 +724,13 @@ const Dashboard: React.FC = () => {
                                 scrollMarginTop: '80px' // Account for sticky nav height
                             }}
                         >
+                            {/* Monthly Overview Chart (Income/Expenses/Savings) */}
+                            <TriColorChart 
+                                selectedMonth={selectedMonth}
+                                selectedYear={selectedYear}
+                                refreshTrigger={refreshTrigger}
+                            />
+
                             {/* Monthly Expenses Chart */}
                             <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '400px' }}>
                                 <Box sx={{ mb: 2 }}>
@@ -640,99 +814,16 @@ const Dashboard: React.FC = () => {
                             </Paper>
                         </Box>
 
-                        {/* Actions Panel - Full Width */}
-                        <Paper ref={actionsRef} sx={{ p: 3, scrollMarginTop: '80px' }}>
-                            <Typography variant="h6" sx={{ mb: 2 }}>
-                                Actions
-                            </Typography>
-                            <Box sx={{ 
-                                display: 'grid', 
-                                gridTemplateColumns: 'repeat(4, 1fr)', 
-                                gap: 2,
-                                maxWidth: '800px'
-                            }}>
-                                <Button
-                                    variant="contained"
-                                    onClick={() => setIsAddDialogOpen(true)}
-                                    sx={{ 
-                                        aspectRatio: '3/2',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        fontSize: '0.875rem'
-                                    }}
-                                >
-                                    Add Expense
-                                </Button>
-                                <Tooltip title="Download all expenses as Excel file">
-                                    <Button
-                                        variant="contained"
-                                        color="secondary"
-                                        onClick={() => api.exportExpenses()}
-                                        sx={{ 
-                                            aspectRatio: '3/2',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            fontSize: '0.875rem'
-                                        }}
-                                    >
-                                        Export Data
-                                    </Button>
-                                </Tooltip>
-                                <Tooltip title="Extract data from any bank statement in .xls or .xlsx">
-                                    <Button
-                                        variant="contained"
-                                        onClick={() => fileInputRef.current?.click()}
-                                        disabled={uploading}
-                                        sx={{ 
-                                            aspectRatio: '3/2',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            fontSize: '0.875rem'
-                                        }}
-                                    >
-                                        {uploading ? 'Uploading...' : 'Import Transactions'}
-                                    </Button>
-                                </Tooltip>
-                                <Tooltip title={totals?.overall_total === 0 ? "No expenses to show this month" : ""}>
-                                    <span>
-                                        <Button
-                                            variant="contained"
-                                            onClick={handleShowMonthlyReport}
-                                            disabled={reportLoading || (totals?.overall_total === 0)}
-                                            sx={{ 
-                                                aspectRatio: '3/2',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                fontSize: '0.875rem',
-                                                width: '100%'
-                                            }}
-                                        >
-                                            {reportLoading ? 'Loading Report...' : 'Show Monthly Report'}
-                                        </Button>
-                                    </span>
-                                </Tooltip>
-                            </Box>
-                            {uploadError && <Typography color="error" sx={{ mt: 2 }}>{uploadError}</Typography>}
-                            <input
-                                type="file"
-                                ref={fileInputRef}
-                                onChange={handleFileChange}
-                                style={{ display: 'none' }}
-                                accept=".xls,.xlsx"
-                            />
-                        </Paper>
 
                         {/* Expense List - Full Width */}
                         <Paper ref={expensesRef} sx={{ p: 2, scrollMarginTop: '80px' }}>
                             <Box sx={{ height: '100%' }}>
-                                <ExpenseList
+                                <MonthlyTransactionList
                                     expenses={expenses}
-                                    onSelectExpense={setSelectedExpense}
-                                    selectedExpense={selectedExpense}
+                                    incomes={incomes}
+                                    savings={savings}
+                                    onSelectRecord={setSelectedRecord}
+                                    selectedRecord={selectedRecord}
                                     onDeleteClick={handleDeleteClick}
                                 />
                             </Box>
@@ -749,21 +840,23 @@ const Dashboard: React.FC = () => {
                         </Box>
                     </Box>
 
-                    <AddExpenseDialog
+                    <AddRecordDialog
                         open={isAddDialogOpen}
                         onClose={() => setIsAddDialogOpen(false)}
-                        onAdd={handleAddExpense}
+                        onAddExpense={handleAddExpense}
+                        onAddIncome={handleAddIncome}
+                        onAddSaving={handleAddSaving}
                         onSubscriptionSuccess={() => subscriptionsPanelRef.current?.fetchSubscriptions()}
                         selectedMonth={selectedMonth}
                         selectedYear={selectedYear}
-                        onConverttoSubscription={handleConverttoSubscription} // Pass the new handler
+                        onConverttoSubscription={handleConverttoSubscription}
                     />
 
                     <DeleteExpenseDialog
                         open={isDeleteDialogOpen}
                         onClose={() => setIsDeleteDialogOpen(false)}
-                        onDelete={handleDeleteExpense}
-                        expense={selectedExpense}
+                        onDelete={(id) => selectedRecord && handleDeleteRecord(id, selectedRecord.type)}
+                        expense={selectedRecord}
                     />
                     
                     <BudgetDialog

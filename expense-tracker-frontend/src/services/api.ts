@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { Expense, TotalExpenses } from '../types/expense';
-import { Subscription, SubscriptionCreate } from '../types/subscription';
+import { Income, Saving } from '../types/records';
+import { Subscription } from '../types/subscription';
 import { SavingGoal, SavingGoalCreate } from '../types/savingGoal';
 import { User } from '../types/user';
 
@@ -256,6 +257,82 @@ export const api = {
     document.body.appendChild(a);
     a.click();
     a.remove();
+  },
+
+  // Income API functions
+  getIncomes: async (month?: number, year?: number): Promise<Income[]> => {
+    const params = new URLSearchParams();
+    if (month !== undefined) params.append('month', month.toString());
+    if (year !== undefined) params.append('year', year.toString());
+    const response = await axiosInstance.get(`/income/?${params.toString()}`);
+    return response.data;
+  },
+
+  getTotalIncomes: async (month?: number, year?: number): Promise<TotalExpenses> => {
+    const params = new URLSearchParams();
+    if (month !== undefined) params.append('month', month.toString());
+    if (year !== undefined) params.append('year', year.toString());
+    const response = await axiosInstance.get(`/income/total?${params.toString()}`);
+    return response.data;
+  },
+
+  createIncome: async (income: Omit<Income, 'id' | 'category' | 'created_at'>): Promise<Income> => {
+    const response = await axiosInstance.post(`/income/`, income);
+    return response.data;
+  },
+
+  deleteIncome: async (id: number): Promise<string> => {
+    const response = await axiosInstance.delete(`/income/${id}`);
+    return response.data;
+  },
+
+  // Saving API functions
+  getSavings: async (month?: number, year?: number): Promise<Saving[]> => {
+    const params = new URLSearchParams();
+    if (month !== undefined) params.append('month', month.toString());
+    if (year !== undefined) params.append('year', year.toString());
+    const response = await axiosInstance.get(`/savings/?${params.toString()}`);
+    return response.data;
+  },
+
+  getTotalSavings: async (month?: number, year?: number): Promise<TotalExpenses> => {
+    const params = new URLSearchParams();
+    if (month !== undefined) params.append('month', month.toString());
+    if (year !== undefined) params.append('year', year.toString());
+    const response = await axiosInstance.get(`/savings/total?${params.toString()}`);
+    return response.data;
+  },
+
+  createSaving: async (saving: Omit<Saving, 'id' | 'category' | 'created_at'>): Promise<Saving> => {
+    const response = await axiosInstance.post(`/savings/`, saving);
+    return response.data;
+  },
+
+  deleteSaving: async (id: number): Promise<string> => {
+    const response = await axiosInstance.delete(`/savings/${id}`);
+    return response.data;
+  },
+
+  // Categories API
+  getCategories: async () => {
+    const response = await axiosInstance.get('/categories');
+    return response.data;
+  },
+
+  // Account API functions
+  getAccounts: async () => {
+    const response = await axiosInstance.get('/accounts/');
+    return response.data;
+  },
+
+  createAccount: async (account: { balance: number }) => {
+    const response = await axiosInstance.post('/accounts/', account);
+    return response.data;
+  },
+
+  updateAccountBalance: async (accountId: number, account: { balance: number }) => {
+    const response = await axiosInstance.put(`/accounts/${accountId}`, account);
+    return response.data;
   },
 
   getRecurringExpenses: async (): Promise<Subscription[]> => {
