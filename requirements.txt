@@ -18,3 +18,5 @@ passlib
 python-jose
 jinja2
 APscheduler
+pydantic[email]
+python-Levenshtein
