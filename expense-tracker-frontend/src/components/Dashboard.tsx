@@ -60,7 +60,6 @@ const Dashboard: React.FC = () => {
     
     // User state
     const [currentUser, setCurrentUser] = useState<User | null>(null);
-    const [userLoading, setUserLoading] = useState(true);
     
     // Section refs for navigation
     const chartsRef = useRef<HTMLDivElement>(null);
@@ -195,14 +194,12 @@ const Dashboard: React.FC = () => {
 
     const fetchUser = async () => {
         try {
-            setUserLoading(true);
             const user = await api.getCurrentUser();
             setCurrentUser(user);
         } catch (error) {
             console.error('Error fetching user:', error);
             // If user fetch fails, user might not be authenticated
         } finally {
-            setUserLoading(false);
         }
     };
 
@@ -415,10 +412,6 @@ const Dashboard: React.FC = () => {
         'July', 'August', 'September', 'October', 'November', 'December'
     ];
 
-    const years = Array.from(
-        { length: 5 },
-        (_, i) => new Date().getFullYear() - i
-    );
 
     const currentMonth = new Date().getMonth() + 1; // 1-indexed
     const currentYear = new Date().getFullYear();
