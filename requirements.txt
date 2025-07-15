@@ -17,3 +17,4 @@ quickchart.io
 passlib
 python-jose
 jinja2
+APscheduler
