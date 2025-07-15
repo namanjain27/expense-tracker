@@ -1,0 +1,1 @@
+delete from refresh_tokens where user_id in ('1', '2')

@@ -7,6 +7,7 @@ export interface Expense {
     category: string;
     amount: number;
     intention: IntentionType;
+    name: string;
 }
 
 export interface CategoryTotal {
@@ -20,9 +21,12 @@ export interface TotalExpenses {
 
 export const CATEGORIES: { [key: number]: string } = {
     1: "Food",
-    2: "Rent",
-    3: "Travel",
-    4: "Shopping",
+    2: "Housing",
+    3: "Transportation",
+    4: "Personal",
     5: "Utility",
-    6: "Misc"
+    6: "Recreation",
+    7: "Health",
+    8: "Savings",
+    9: "Debt"
 }; 

@@ -1,5 +1,5 @@
-import React, { useEffect, useState, forwardRef, useImperativeHandle } from 'react';
-import { Card, CardContent, Typography, List, ListItem, ListItemText, Divider, Button, Box, Tooltip, IconButton } from '@mui/material';
+import { useEffect, useState, forwardRef, useImperativeHandle } from 'react';
+import { Card, CardContent, Typography, Button, Box, Tooltip, IconButton } from '@mui/material';
 import { format } from 'date-fns';
 import { api } from '../services/api';
 import { Subscription } from '../types/subscription';
@@ -40,18 +40,15 @@ const SubscriptionsPanel = forwardRef<SubscriptionsPanelRef>((_, ref) => {
 
   const handlePay = async (subscription: Subscription) => {
     try {
-      // Create a new expense from the subscription
       await api.createExpense({
         date: new Date().toISOString().split('T')[0],
         category_id: subscription.category_id,
         amount: subscription.amount,
-        intention: subscription.intention
+        intention: subscription.intention,
+        name: subscription.name
       });
       
-      // Update the subscription's effective date
       await api.updateSubscriptionEffectiveDate(subscription.id);
-      
-      // Reload the page to refresh all components
       window.location.reload();
     } catch (error) {
       console.error('Error paying subscription:', error);
@@ -72,7 +69,7 @@ const SubscriptionsPanel = forwardRef<SubscriptionsPanelRef>((_, ref) => {
     if (window.confirm(`Are you sure you want to delete the subscription "${subscription.name}"?`)) {
       try {
         await api.deleteRecurringExpense(subscription.id);
-        fetchSubscriptions(); // Refresh the list
+        fetchSubscriptions();
       } catch (error) {
         console.error('Error deleting subscription:', error);
       }
@@ -109,8 +106,12 @@ const SubscriptionsPanel = forwardRef<SubscriptionsPanelRef>((_, ref) => {
     <Card sx={{ minWidth: 275, mb: 2 }}>
       <CardContent>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h5" component="div">
-            Active Subscriptions
+          <Typography variant="h5" component="div" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <img 
+                        src="/src/assets/colored icons/subscriptions.png" 
+                        alt="Subscriptions" 
+                        style={{ width: '50px', height: '50px' }}
+                    /> Subscriptions
           </Typography>
           <Button
             variant="contained"
@@ -120,73 +121,111 @@ const SubscriptionsPanel = forwardRef<SubscriptionsPanelRef>((_, ref) => {
             Add Subscription
           </Button>
         </Box>
-        <List>
-          {subscriptions.map((subscription, index) => (
-            <React.Fragment key={subscription.id}>
-              <ListItem>
-                <ListItemText
-                  primary={
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Typography variant="subtitle1">{subscription.name}</Typography>
-                      <Box sx={{ display: 'flex', gap: 1 }}>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleEdit(subscription)}
-                          color="primary"
-                        >
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleDelete(subscription)}
-                          color="error"
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                        <Tooltip title={getPaymentTooltip(subscription)}>
-                          <span>
-                            <Button
-                              variant="contained"
-                              color="primary"
-                              size="small"
-                              onClick={() => handlePay(subscription)}
-                              disabled={isPaymentDisabled(subscription)}
-                            >
-                              Pay Now
-                            </Button>
-                          </span>
-                        </Tooltip>
-                      </Box>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, maxHeight: 'calc(100vh - 200px)', overflow: 'auto', 
+          '&::-webkit-scrollbar': {
+            width: '8px',
+          },
+          '&::-webkit-scrollbar-track': {
+            background: '#f1f1f1',
+            borderRadius: '4px',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            background: '#888',
+            borderRadius: '4px',
+            '&:hover': {
+              background: '#555',
+            },
+          },
+        }}>
+          {subscriptions.map((subscription) => (
+            <Box 
+              key={subscription.id}
+              sx={{ 
+                width: { xs: '100%', sm: 'calc(50% - 8px)', md: 'calc(33.33% - 11px)' },
+                minWidth: 0
+              }}
+            >
+              <Card 
+                sx={{ 
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  '&:hover': {
+                    boxShadow: 3
+                  }
+                }}
+              >
+                <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                    <Typography variant="h6" component="div" sx={{ flex: 1 }}>
+                      {subscription.name}
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 0.5 }}>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleEdit(subscription)}
+                        color="primary"
+                      >
+                        <EditIcon />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleDelete(subscription)}
+                        color="error"
+                      >
+                        <DeleteIcon />
+                      </IconButton>
                     </Box>
-                  }
-                  secondary={
-                    <>
-                      <Typography component="span" variant="body2" color="text.primary">
-                        {formatAmount(subscription.amount)} / {formatPeriod(subscription.billing_period)}
-                      </Typography>
-                      <br />
-                      <Typography component="span" variant="body2">
-                        Category: {subscription.category}
-                        <br />
-                        Intention: {subscription.intention}
-                        <br />
-                        Billing Date: {format(new Date(subscription.effective_date), 'MMM dd, yyyy')}
-                        <br />
-                        Due Period: {formatPeriod(subscription.due_period)}
-                      </Typography>
-                    </>
-                  }
-                />
-              </ListItem>
-              {index < subscriptions.length - 1 && <Divider />}
-            </React.Fragment>
+                  </Box>
+                  
+                  <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 1 }}>
+                    <Typography variant="h5" color="primary">
+                      {formatAmount(subscription.amount)}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      / {formatPeriod(subscription.billing_period)}
+                    </Typography>
+                  </Box>
+                  
+                  <Box sx={{ mb: 1 }}>
+                    <Typography variant="body2">
+                      Category: {subscription.category} [{subscription.intention}]
+                    </Typography>
+                    <Typography variant="body2">
+                      Billing Date: {format(new Date(subscription.effective_date), 'MMM dd, yyyy')}
+                    </Typography>
+                    <Typography variant="body2">
+                      Due Period: {formatPeriod(subscription.due_period)}
+                    </Typography>
+                  </Box>
+                  
+                  <Box sx={{ mt: 'auto', pt: 1 }}>
+                    <Tooltip title={getPaymentTooltip(subscription)}>
+                      <span>
+                        <Button
+                          variant="contained"
+                          color="primary"
+                          fullWidth
+                          onClick={() => handlePay(subscription)}
+                          disabled={isPaymentDisabled(subscription)}
+                        >
+                          Pay Now
+                        </Button>
+                      </span>
+                    </Tooltip>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Box>
           ))}
           {subscriptions.length === 0 && (
-            <ListItem>
-              <ListItemText primary="No active subscriptions" />
-            </ListItem>
+            <Box sx={{ width: '100%', textAlign: 'center' }}>
+              <Typography variant="body1">
+                No active subscriptions
+              </Typography>
+            </Box>
           )}
-        </List>
+        </Box>
       </CardContent>
 
       <AddSubscriptionDialog

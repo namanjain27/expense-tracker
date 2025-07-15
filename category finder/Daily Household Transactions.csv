@@ -1,0 +1,360 @@
+Name,Category
+Transportation,Transportation
+Food,Food
+subscription,Recreation
+Festivals,Recreation
+Other,Personal
+Small Cap fund 2,Saving
+Small cap fund 1,Saving
+Family,Personal
+Equity Mutual Fund E,Saving
+Apparel,Personal
+Public Provident Fund,Saving
+Saving Bank account 1,Saving
+Gift,Personal
+Salary,Saving
+Household,Housing
+Dividend earned on Shares,Saving
+Interest,Saving
+Life Insurance,Health
+Beauty,Personal
+Health,Health
+Money transfer,Personal
+maid,Housing
+Culture,Recreation
+Tax refund,Saving
+Tourism,Recreation
+Share Market,Saving
+Self-development,Personal
+Amazon pay cashback,Saving
+Education,Personal
+scrap,Saving
+Petty cash,Personal
+Documents,Personal
+Gpay Reward,Saving
+Social Life,Recreation
+Equity Mutual Fund A,Saving
+Maturity amount,Saving
+Fixed Deposit,Saving
+Equity Mutual Fund C,Saving
+Equity Mutual Fund F,Saving
+Recurring Deposit,Saving
+Saving Bank account 2,Saving
+Equity Mutual Fund D,Saving
+Equity Mutual Fund B,Saving
+Bonus,Saving
+Investment,Saving
+Grooming,Personal
+Rent,Housing
+Cook,Housing
+water (jar /tanker),Utility
+Train,Transportation
+snacks,Food
+Netflix,Recreation
+Mobile Service Provider,Utility
+Ganesh Pujan,Recreation
+Tata Sky,Recreation
+auto,Transportation
+Grocery,Food
+Lunch,Food
+Milk,Food
+Pocket money,Personal
+Laundry,Personal
+breakfast,Food
+Dinner,Food
+Sweets,Food
+Kirana,Housing
+Ice cream,Food
+curd,Food
+Biscuits,Food
+Rajgira ladu,Food
+Navratri,Recreation
+Tea,Food
+flour mill,Food
+maintenance,Housing
+home decor,Housing
+Clothing,Personal
+clothes,Personal
+Home,Personal
+chocolate,Food
+Medicine,Health
+Eating out,Food
+Movie,Recreation
+vegetables,Food
+fruits,Food
+Potato,Food
+Onions,Food
+Taxi,Transportation
+Hardware,Housing
+Eggs,Food
+Bread,Food
+Petrol,Transportation
+Mahanagar Gas,Utility
+Hospital,Health
+Lab Tests,Health
+Bus,Transportation
+Travels,Transportation
+Kitchen,Housing
+Footwear,Personal
+Entry Fees,Recreation
+Repair,Housing
+Accessories,Personal
+misc,Personal
+Stationary,Personal
+Newspaper,Personal
+Toiletries,Housing
+Bike,Transportation
+beverage,Food
+makeup,Personal
+Books,Recreation
+Holi,Recreation
+Courier,Personal
+Leisure,Recreation
+Amazon Prime,Recreation
+Edtech Course,Personal
+Hotstar,Recreation
+Diwali,Recreation
+Wifi Internet Service,Utility
+Trip,Recreation
+Furniture,Housing
+Water,Food
+Cable TV,Recreation
+Mutual fund,Saving
+ropeway,Transportation
+RD,Saving
+LIC,Saving
+Saloon,Personal
+Rakshabandhan,Recreation
+exam fee,Personal
+OTT Platform,Recreation
+Kindle unlimited,Personal
+School supplies,Personal
+Audible,Personal
+Rice,Food
+Wheat flour,Food
+Atta,Food
+Lentils,Food
+Dal ,Food
+Cooking oil,Food
+Sugar,Food
+Salt,Food
+Spices,Food
+Haldi,Food
+Mirchi,Food
+Dhaniya,Food
+Jeera,Food
+Vegetables,Food
+Sabji - all types,Food
+Fruits,Food
+Eggs,Food
+Paneer,Food
+Indian cheese,Food
+Curd,Food
+Dahi,Food
+Butter,Food
+Ghee,Food
+Tea,Food
+Coffee,Food
+Milk,Food
+Dudh,Food
+Bread,Food
+Pav,Food
+Roti,Food
+sliced bread,Food
+Biscuits,Food
+Noodles,Food
+Pasta,Food
+Pickles,Food
+Achar,Food
+Jams,Food
+Sauce,Food
+Lunch,Food
+Dinner,Food
+Breakfast,Food
+Snacks,Food
+Meal,Food
+Takeout,Food
+Delivery,Food
+Swiggy,Food
+Zomato order,Food
+Restaurant,Food
+generic,Food
+Dominos,Food
+Mac D,Food
+Cafe,Food
+Street food,Food
+Pani Puri,Food
+Vada Pav,Food
+Samosa,Food
+Thali,Food
+Buffet,Food
+Catering,Food
+Laddu,Food
+Sweets,Food
+Mithai,Food
+Ice cream,Food
+Chocolates,Food
+Cakes,Food
+Pastries,Food
+Kulfi,Food
+Gulab Jamun,Food
+Rasgulla,Food
+Jalebi,Food
+Juice,Food
+Soft drinks,Food
+Coke,Food
+Pepsi,Food
+Lassi,Food
+Sharbat,Food
+Water,Food
+Soda,Food
+Buttermilk,Food
+Chaas,Food
+Coconut water,Food
+Snacks,Food
+chips,Food
+namkeen,Food
+Popcorn,Food
+Dry fruits,Food
+Kaju,Food
+Badam,Food
+Kishmish,Food
+Nuts,Food
+Birthday cake,Food
+Festival sweets,Food
+Ingredients,Food
+Badminton,Health
+Sports,Health
+football,Health
+court booking,Health
+mediclaim,Health
+doctor,Health
+kiraya,Housing
+paint,Housing
+plumber,Housing
+carpenter,Housing
+electrician,Housing
+pest control,Housing
+brokerage,Housing
+haircut,Personal
+shaving,Personal
+trim,Personal
+makeup,Personal
+cosmetic,Personal
+manicure,Personal
+pedicure,Personal
+spa,Personal
+skincare,Personal
+footwear,Personal
+clothes,Personal
+shopping,Personal
+pantaloons,Personal
+dry clean,Personal
+tailor,Personal
+books,Personal
+tution,Personal
+art,Personal
+hobby,Personal
+guitar,Personal
+music instrument,Personal
+gardening,Personal
+donation,Personal
+gift,Personal
+outing,Recreation
+party,Recreation
+marine drive,Recreation
+Sunday,Recreation
+theatre,Recreation
+trekking,Recreation
+trip,Recreation
+tour,Recreation
+hinge,Recreation
+bumble,Recreation
+games,Recreation
+gta 6,Recreation
+shoes,Personal
+cashback,Saving
+fd,Saving
+ppf,Saving
+stocks,Saving
+gold,Saving
+silver,Saving
+amazon wallet,Personal
+amazon,Personal
+flight,Transportation
+ticket,Transportation
+toll,Transportation
+cab,Transportation
+car pool,Transportation
+local,Transportation
+diesel,Transportation
+CNG,Transportation
+car charge,Transportation
+battery,Transportation
+wifi,Utility
+recharge,Utility
+jio,Utility
+airtel,Utility
+gas,Utility
+water,Utility
+internet,Utility
+tv,Utility
+electricity,Utility
+bijli,Utility
+emi,Debt
+udhar,Debt
+loan,Debt
+home loan,Debt
+Education loan,Debt
+repay,Debt
+Starbucks coffee,Food
+Grocery shopping,Food
+Restaurant dinner,Food
+Pizza delivery,Food
+Monthly rent,Housing
+Mortgage payment,Housing
+Property tax,Housing
+Uber ride,Transportation
+Monthly metro card,Transportation
+Gas station fuel,Transportation
+Car insurance,Transportation
+Gym membership,Health
+Doctor visit,Health
+Prescription medicine,Health
+Vitamin supplements,Health
+Netflix subscription,Recreation
+Movie tickets,Recreation
+Spotify premium,Recreation
+Concert tickets,Recreation
+Phone bill,Utility
+Electricity bill,Utility
+Internet subscription,Utility
+Water bill,Utility
+Shampoo and toiletries,Personal
+Haircut,Personal
+Clothing shopping,Personal
+Makeup products,Personal
+Investment in stocks,Savings
+Mutual fund deposit,Savings
+Retirement account,Savings
+Savings account deposit,Savings
+Credit card payment,Debt
+Loan repayment,Debt
+Student loan EMI,Debt
+Mortgage debt payment,Debt
+Dining with friends,Food
+House maintenance,Housing
+Ride share,Transportation
+Fitness tracker,Health
+Book purchase,Personal
+Board games,Recreation
+Garbage collection fee,Utility
+Moisturizer cream,Personal
+High yield savings,Savings
+Debt consolidation fee,Debt
+Weekend brunch,Food
+Furnishing new home,Housing
+Parking fee,Transportation
+Eye checkup,Health
+Camping gear,Recreation
+Electric razor,Personal

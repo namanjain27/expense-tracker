@@ -16,4 +16,6 @@ export interface Subscription {
     effective_date: string;
     billing_period: Period;
     due_period: Period;
-} 
+}
+
+export type SubscriptionCreate = Omit<Subscription, 'id' | 'category'>; 

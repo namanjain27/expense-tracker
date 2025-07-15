@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Monthly Report</title>
+</head>
+<body style="margin:0; padding:0; background:#222831; font-family: open sans;">
+    <table width="100%" bgcolor="#222831" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" border="0" style="background:#393E46; margin:40px 0; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.06); max-width:600px;">
+                    <tr>
+                        <td style="padding:32px 32px 16px 32px; text-align:left;">
+                            <!-- Page Heading -->
+                            <h1 style="margin:0 0 24px 0; color:#FFD369; font-size:28px; font-weight:bold; text-align:center; letter-spacing:1px;">TrackX - {{Month}} Monthly Report</h1>
+
+                            <!-- Section: Month Summary -->
+                            <h2 style="margin:0 0 16px 0; color:#DFD0B8; font-size:22px; font-weight:bold;">Your Month at a Glance</h2>
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
+                                <tr>
+                                    <td style="padding:8px 0; color:#948979; font-size:16px;">Total Spent:</td>
+                                    <td style="padding:8px 0; color:#DFD0B8; font-size:16px; font-weight:bold; text-align:right;">{{total_spent}}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:8px 0; color:#948979; font-size:16px;">Total Saved:</td>
+                                    <td style="padding:8px 0; color:#DFD0B8; font-size:16px; font-weight:bold; text-align:right;">{{total_saved}}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:8px 0; color:#948979; font-size:16px;">% Change in Expenses from Previous Month:</td>
+                                    <td style="padding:8px 0; color:#DFD0B8; font-size:16px; font-weight:bold; text-align:right;">{{percent_change_expenses}}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:8px 0; color:#948979; font-size:16px;">% of Budget Used:</td>
+                                    <td style="padding:8px 0; color:#DFD0B8; font-size:16px; font-weight:bold; text-align:right;">{{budget_used_percent}}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:8px 0; color:#948979; font-size:16px;">Categories you overspent in:</td>
+                                    <td style="padding:8px 0; color:#DFD0B8; font-size:16px; font-weight:bold; text-align:right;">{{overspent_categories_names_comma_separated}}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:8px 0; color:#948979; font-size:16px;">Savings goal reached:</td>
+                                    <td style="padding:8px 0; color:#DFD0B8; font-size:16px; font-weight:bold; text-align:right;">{{savings_goal_reached}}</td>
+                                </tr>
+                            </table>
+                            <!-- Section: Top Expenses -->
+                            <h2 style="margin:0 0 8px 0; color:#DFD0B8; font-size:20px; font-weight:bold;">Your Top 3 Expenses</h2>
+                            <ol style="margin:0 0 24px 18px; padding:0; color:#948979; font-size:15px;">
+                                <li>{{top_expense_1}}</li>
+                                <li>{{top_expense_2}}</li>
+                                <li>{{top_expense_3}}</li>
+                            </ol>
+
+                            <hr style="border:none; border-top:1px solid #eee; margin:24px 0;">
+
+                            <!-- Section: Key Visuals -->
+                            <h2 style="margin:0 0 12px 0; color:#DFD0B8; font-size:20px; font-weight:bold;">Visual Summary</h2>
+                            <div style="margin-bottom:20px;">
+                                <img src="{{expense_by_category_chart_url}}" alt="Expense by Category Pie Chart" style="width:100%; max-width:520px; display:block; margin:0 auto 12px auto; border-radius:4px;" />
+                                <p style="color:#888; font-size:13px; text-align:center; margin:0;">Expense by Category</p>
+                            </div>
+                            <div style="margin-bottom:20px;">
+                                <img src="{{budget_vs_actual_chart_url}}" alt="Budget vs Actual Bar Chart" style="width:100%; max-width:520px; display:block; margin:0 auto 12px auto; border-radius:4px;" />
+                                <p style="color:#888; font-size:13px; text-align:center; margin:0;">Budget vs Actual by Category</p>
+                            </div>
+                            <div style="margin-bottom:20px;">
+                                <img src="{{intention_breakdown_pie_url}}" alt="Needs vs Wants vs Savings Pie Chart" style="width:100%; max-width:520px; display:block; margin:0 auto 12px auto; border-radius:4px;" />
+                                <p style="color:#888; font-size:13px; text-align:center; margin:0;">Needs vs Wants vs Savings</p>
+                            </div>
+                            <div style="margin-bottom:20px;">
+                                <img src="{{daily_spend_line_chart_url}}" alt="Daily Spend Line Chart" style="width:100%; max-width:520px; display:block; margin:0 auto 12px auto; border-radius:4px;" />
+                                <p style="color:#888; font-size:13px; text-align:center; margin:0;">Daily Spend Trend</p>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
