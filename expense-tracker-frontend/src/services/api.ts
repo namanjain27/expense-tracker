@@ -446,4 +446,9 @@ export const api = {
     const response = await axiosInstance.post('/send-monthly-report');
     return response.data && response.data.message === "Monthly report has been queued.";
   },
+
+  predictCategory: async (name: string): Promise<{ category: string }> => {
+    const response = await axiosInstance.post('/predict-category', { name });
+    return response.data;
+  },
 };

@@ -27,6 +27,7 @@ import {
     EXPENSE_CATEGORIES 
 } from '../types/records';
 import { ThemeContext } from './Dashboard';
+import { api } from '../services/api';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
@@ -76,14 +77,7 @@ const AddRecordDialog: React.FC<AddRecordDialogProps> = ({
         const predictCategory = async () => {
             if (name.trim() && recordType === 'Expense') {
                 try {
-                    const response = await fetch('http://localhost:8000/predict-category', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ name }),
-                    });
-                    const data = await response.json();
+                    const data = await api.predictCategory(name);
                     if (data.category) {
                         const categoryId = Object.entries(EXPENSE_CATEGORIES).find(
                             ([_, catName]) => catName === data.category
