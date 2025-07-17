@@ -107,7 +107,14 @@ const SavingGoalCard: React.FC<SavingGoalCardProps> = ({ goal, onAddAmount, onDe
                 ) : (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Typography variant="h6" sx={{ fontWeight: 'bold', textDecoration: 'underline' }}>{goal.name}</Typography>
-                        <Chip label={goal.status === 'redeemed' && goal.is_completed ? 'completed' : goal.status} color={getStatusColor()} size="small" />
+                        {goal.status === 'redeemed' && goal.is_completed ? (
+                            <Box sx={{ display: 'flex', gap: 0.5 }}>
+                                <Chip label="completed" color="success" size="small" />
+                                <Chip label="redeemed" color="info" size="small" />
+                            </Box>
+                        ) : (
+                            <Chip label={goal.status} color={getStatusColor()} size="small" />
+                        )}
                     </Box>
                 )}
                 <Box>

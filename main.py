@@ -1345,9 +1345,10 @@ def get_saving_goals(db: Session = Depends(get_db), current_user: models.User = 
     
     # Calculate saved_amount from savings records for each goal
     for goal in goals:
+        # Calculate from both "Saving Goal" and "Saving Goal Redeemed" categories
         total_saved = db.query(func.sum(models.Saving.amount)).filter(
             models.Saving.user_id == current_user.id,
-            models.Saving.category_id == 7,  # "Saving Goal" category
+            models.Saving.category_id.in_([7, 8]),  # Both "Saving Goal" and "Saving Goal Redeemed" categories
             models.Saving.name == f"{goal.name}"
         ).scalar() or 0
         

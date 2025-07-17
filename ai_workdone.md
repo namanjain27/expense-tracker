@@ -27,4 +27,7 @@ Fixed saving goals issues: Fixed 422 error on redeem button by adding empty requ
 Fixed additional saving goals and UI issues: Fixed redeem button not showing for completed goals by updating canRedeem condition; added negative target amount validation in AddSavingGoalDialog; updated redeemed cards to show total saved amount and empty add field; enhanced ExpenseList to display date+time in 24h format with improved sorting that considers both date and time
 
 ## 07:45, 17-07-2025
-Final saving goals refinements: Excluded 'Saving Goal Redeemed' category from all analysis charts and totals; kept redeemed saving goal cards frozen with saved amount and progress bar intact; maintained 'completed' status tag for redeemed achieved goals to distinguish them from broken piggy banks; reverted ExpenseList to show Date only while implementing backend sorting by date first, then by created_at for consistent chronological ordering 
+Final saving goals refinements: Excluded 'Saving Goal Redeemed' category from all analysis charts and totals; kept redeemed saving goal cards frozen with saved amount and progress bar intact; maintained 'completed' status tag for redeemed achieved goals to distinguish them from broken piggy banks; reverted ExpenseList to show Date only while implementing backend sorting by date first, then by created_at for consistent chronological ordering
+
+## 08:00, 17-07-2025
+Fixed redeemed saving goals display: Updated get_saving_goals endpoint to calculate saved_amount from both 'Saving Goal' and 'Saving Goal Redeemed' categories, ensuring redeemed cards show total saved amount instead of 0; implemented dual status display showing both 'completed' and 'redeemed' chips for achieved goals that were redeemed 
