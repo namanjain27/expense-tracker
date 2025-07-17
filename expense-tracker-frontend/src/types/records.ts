@@ -36,8 +36,7 @@ export const EXPENSE_CATEGORIES: { [key: number]: string } = {
     5: "Utility",
     6: "Recreation",
     7: "Health",
-    8: "Savings",
-    9: "Debt"
+    8: "Debt"
 };
 
 export const INCOME_CATEGORIES: { [key: number]: string } = {

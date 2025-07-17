@@ -2,7 +2,7 @@ import axios from 'axios';
 import { Expense, TotalExpenses } from '../types/expense';
 import { Income, Saving } from '../types/records';
 import { Subscription } from '../types/subscription';
-import { SavingGoal, SavingGoalCreate } from '../types/savingGoal';
+import { SavingGoal, SavingGoalCreate, SavingGoalEdit } from '../types/savingGoal';
 import { User } from '../types/user';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -416,8 +416,24 @@ export const api = {
     return response.data;
   },
 
+  editSavingGoal: async (id: number, updates: SavingGoalEdit): Promise<SavingGoal> => {
+    const response = await axiosInstance.put(`/saving-goals/${id}/edit`, updates);
+    return response.data;
+  },
+
+  redeemSavingGoal: async (id: number): Promise<SavingGoal> => {
+    const response = await axiosInstance.post(`/saving-goals/${id}/redeem`, {});
+    return response.data;
+  },
+
   deleteSavingGoal: async (id: number): Promise<void> => {
     await axiosInstance.delete(`/saving-goals/${id}`);
+  },
+
+  // Account
+  getUserAccount: async (): Promise<any> => {
+    const response = await axiosInstance.get('/accounts/');
+    return response.data;
   },
   // Subscriptions
   getSubscriptions: async (): Promise<Subscription[]> => {

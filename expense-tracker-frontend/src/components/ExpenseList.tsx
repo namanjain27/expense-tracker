@@ -18,7 +18,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import { Expense, Income, Saving, RecordType } from '../types/records';
 import { ThemeContext } from './Dashboard';
 
-type SortField = 'date' | 'category' | 'type' | 'amount';
+type SortField = 'date' | 'category' | 'type' | 'amount' | 'time';
 type SortOrder = 'asc' | 'desc' | 'group';
 
 type TransactionRecord = (Expense | Income | Saving) & { type: RecordType };
@@ -90,7 +90,16 @@ const MonthlyTransactionList: React.FC<MonthlyTransactionListProps> = ({
                 let comparison = 0;
                 switch (sortField) {
                     case 'date':
-                        comparison = new Date(a.date).getTime() - new Date(b.date).getTime();
+                        // Sort by date first, then by created_at time if available
+                        const dateCompare = new Date(a.date).getTime() - new Date(b.date).getTime();
+                        if (dateCompare !== 0) {
+                            comparison = dateCompare;
+                        } else {
+                            // If dates are the same, sort by created_at time
+                            const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+                            const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+                            comparison = aTime - bTime;
+                        }
                         break;
                     case 'amount':
                         comparison = a.amount - b.amount;

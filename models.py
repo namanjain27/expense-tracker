@@ -34,7 +34,7 @@ class Expense(Base):
     amount = Column(Float, nullable=False)
     intention = Column(String, default="Need")
     name = Column(String, nullable=True)
-
+    created_at = Column(DateTime, nullable=False, default=datetime.now)
     owner = relationship("User", back_populates="expenses") # Relationship
 
 class RecurringExpense(Base):
@@ -77,6 +77,10 @@ class SavingGoal(Base):
     target_date = Column(Date, nullable=False)
     target_amount = Column(Float, nullable=False)
     saved_amount = Column(Float, nullable=False, default=0)
+    status = Column(String, default="active", nullable=False)  # 'active', 'completed', 'redeemed'
+    is_completed = Column(Boolean, default=False, nullable=False)
+    redeemed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.now, nullable=False)
 
     owner = relationship("User", back_populates="saving_goals") # Relationship
 
@@ -86,7 +90,7 @@ class PasswordResetToken(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     token = Column(String, unique=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime, default=datetime.now, nullable=False)
     expires_at = Column(DateTime, nullable=False)
 
     user = relationship("User") # Relationship to the User model
@@ -97,7 +101,7 @@ class RefreshToken(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     token = Column(String, unique=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime, default=datetime.now, nullable=False)
     expires_at = Column(DateTime, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
 
@@ -112,7 +116,7 @@ class Income(Base):
     amount = Column(Float, nullable=False)
     date = Column(Date, nullable=False)
     category_id = Column(Integer, nullable=False)
-    created_at = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime, default=datetime.now, nullable=False)
 
     owner = relationship("User", back_populates="incomes")
 

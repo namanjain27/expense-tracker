@@ -7,7 +7,7 @@ from quickchart import QuickChart
 
 CATEGORIES = {
     1: "Food", 2: "Housing", 3: "Transportation", 4: "Personal",
-    5: "Utility", 6: "Recreation", 7: "Health", 8: "Savings", 9: "Debt"
+    5: "Utility", 6: "Recreation", 7: "Health", 8: "Debt"
 }
 
 def _generate_chart_image(chart_config: dict, filename: str) -> str:
@@ -27,29 +27,6 @@ def _generate_chart_image(chart_config: dict, filename: str) -> str:
         print(f"Error generating chart with QuickChart for '{filename}': {e}")
         return ""
 
-def generate_intention_breakdown_chart(db: Session, year: int, month: int, user_id: int) -> str:
-    start_date = datetime(year, month, 1)
-    end_date = start_date + relativedelta(months=1)
-    expenses = db.query(models.Expense).filter(models.Expense.date >= start_date, models.Expense.date < end_date, models.Expense.user_id == user_id).all()
-    
-    intention_totals = {"Need": 0, "Want": 0, "Saving": 0}
-    for expense in expenses:
-        intention_totals[expense.intention] += expense.amount
-    
-    total = sum(intention_totals.values())
-    data = [round((intention_totals[key] / total) * 100 if total > 0 else 0, 1) for key in ['Need', 'Want', 'Saving']]
-
-    chart_config = {
-        "type": 'pie',
-        "data": {
-            "labels": ['Need', 'Want', 'Saving'],
-            "datasets": [{"data": data, "backgroundColor": ['#2196F3', '#FFC107', '#9ACD32']}]
-        },
-        "options": {"plugins": {"legend": {"position": 'top'}, "title": {"display": True, "text": 'Expense Intention Breakdown (%)'}}}
-    }
-    
-    filename = f"intention_breakdown_{year}_{month}.png"
-    return _generate_chart_image(chart_config, filename)
 
 def generate_daily_spend_chart(db: Session, year: int, month: int, user_id: int) -> str:
     start_date = datetime(year, month, 1)

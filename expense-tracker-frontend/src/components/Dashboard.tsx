@@ -67,13 +67,6 @@ const Dashboard: React.FC = () => {
     const expensesRef = useRef<HTMLDivElement>(null);
     const subscriptionsRef = useRef<HTMLDivElement>(null);
     const savingGoalsRef = useRef<HTMLDivElement>(null);
-    const [intentionData, setIntentionData] = useState<{
-        totals: { [key: string]: number },
-        percentages: { [key: string]: number },
-        total_amount: number,
-        budget_income: number,
-        Saving_Untouched: number
-    } | null>(null);
     const [openBudgetDialog, setOpenBudgetDialog] = useState(false);
     const [dailyExpenses, setDailyExpenses] = useState<DailyExpense[]>([]);
     const [lineGraphLoading, setLineGraphLoading] = useState(false);
@@ -157,26 +150,6 @@ const Dashboard: React.FC = () => {
         }
     };
 
-    const fetchIntentionData = async () => {
-        try {
-            const data = await api.getIntentionBreakdown(selectedMonth, selectedYear);
-            const budgetData = await api.getLatestBudget(selectedMonth, selectedYear).catch(() => null);
-            
-            // Calculate Savings [Untouched]
-            const budgetIncome = budgetData?.monthly_income || 0;
-            const totalExpenses = data.total_amount;
-            const untouchedSavings = budgetIncome - totalExpenses;
-            const untouchedSavingsPercentage = budgetIncome > 0 ? (untouchedSavings / budgetIncome) * 100 : 0;
-
-            setIntentionData({
-                ...data,
-                budget_income: budgetIncome,
-                Saving_Untouched: untouchedSavingsPercentage
-            });
-        } catch (error) {
-            console.error('Error fetching intention data:', error);
-        }
-    };
 
     const fetchDailyExpenses = async () => {
         try {
@@ -211,9 +184,6 @@ const Dashboard: React.FC = () => {
         fetchData();
     }, [selectedMonth, selectedYear]);
 
-    useEffect(() => {
-        fetchIntentionData();
-    }, [selectedMonth, selectedYear]);
 
     useEffect(() => {
         fetchDailyExpenses();
@@ -225,7 +195,6 @@ const Dashboard: React.FC = () => {
             // Reload all data
             await Promise.all([
                 fetchData(),
-                fetchIntentionData(),
                 fetchDailyExpenses()
             ]);
             setRefreshTrigger(prev => prev + 1);
@@ -301,7 +270,6 @@ const Dashboard: React.FC = () => {
             // Reload all data
             await Promise.all([
                 fetchData(),
-                fetchIntentionData(),
                 fetchDailyExpenses()
             ]);
             setRefreshTrigger(prev => prev + 1);  // Increment refresh trigger
@@ -322,14 +290,13 @@ const Dashboard: React.FC = () => {
         datasets: [{
             data: totals ? Object.values(totals.category_breakdown) : [],
             backgroundColor: [
-                '#9ACD32',  // Food - Pink
+                '#9ACD32',  // Food - Green
                 '#36A2EB',  // Housing - Blue
                 '#FFCE56',  // Transportation - Yellow
                 '#4BC0C0',  // Personal - Teal
                 '#9966FF',  // Utility - Purple
                 '#FF9F40',  // Recreation - Orange
                 '#FF6384',  // Health - Pink
-                '#4CAF50',  // Savings - Green
                 '#FF5252'   // Debt - Red
             ]
         }]
@@ -360,52 +327,6 @@ const Dashboard: React.FC = () => {
         }
     };
 
-    const intentionChartData = {
-        labels: ['Need', 'Want', 'Saving', 'Savings [Untouched]'],
-        datasets: [{
-            data: intentionData ? [
-                intentionData.percentages.Need,
-                intentionData.percentages.Want,
-                intentionData.percentages.Saving,
-                intentionData.Saving_Untouched || 0
-            ] : [0, 0, 0, 0],
-            backgroundColor: [
-                '#2196F3',  // Blue for Need
-                '#FFC107',  // Amber for Want
-                '#9ACD32',  // Green for Saving
-                '#4CAF50'   // Light Green for Savings [Untouched]
-            ]
-        }]
-    };
-
-    const intentionChartOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            tooltip: {
-                callbacks: {
-                    label: (context: any) => {
-                        const label = context.label || '';
-                        const value = context.raw || 0;
-                        const total = intentionData?.total_amount || 0;
-                        let amount = (value / 100) * total;
-                        
-                        // For Savings [Untouched], calculate based on budget income
-                        if (label === 'Savings [Untouched]') {
-                            const budgetIncome = intentionData?.budget_income || 0;
-                            amount = budgetIncome - total;
-                        }
-                        
-                        return `${label}: ${value.toFixed(1)}% (₹${amount.toFixed(2)})`;
-                    }
-                }
-            },
-            title: {
-                display: true,
-                text: 'Total Expense Amount: ₹' + intentionData?.total_amount.toFixed(2) || '0.00'
-            }
-        }
-    };
 
     const months = [
         'January', 'February', 'March', 'April', 'May', 'June',
@@ -803,22 +724,6 @@ const Dashboard: React.FC = () => {
                                 refreshTrigger={refreshTrigger}
                             />
 
-                            {/* Expense Intention Breakdown Chart */}
-                            <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '400px' }}>
-                                <Box sx={{ mb: 2 }}>
-                                    <Typography variant="h6" sx={{ ml: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        Expense Intention Breakdown
-                                    </Typography>
-                                </Box>
-                                <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                    <Box sx={{ width: '60%', height: '100%' }}>
-                                        <Pie 
-                                            data={intentionChartData}
-                                            options={intentionChartOptions}
-                                        />
-                                    </Box>
-                                </Box>
-                            </Paper>
 
                             {/* Daily Expense Variation Chart */}
                             <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '400px' }}>
@@ -871,7 +776,13 @@ const Dashboard: React.FC = () => {
 
                         {/* Saving Goals Panel - Full Width */}
                         <Box ref={savingGoalsRef} sx={{ width: '100%', scrollMarginTop: '80px' }}>
-                            <SavingGoalsPanel />
+                            <SavingGoalsPanel onDataChange={async () => {
+                                await Promise.all([
+                                    fetchData(),
+                                    fetchDailyExpenses()
+                                ]);
+                                setRefreshTrigger(prev => prev + 1);
+                            }} />
                         </Box>
                     </Box>
 
