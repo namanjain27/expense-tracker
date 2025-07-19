@@ -60,7 +60,6 @@ const AddRecordDialog: React.FC<AddRecordDialogProps> = ({
     const [date, setDate] = useState<Date | null>(null);
     const [categoryId, setCategoryId] = useState<number>(1);
     const [amount, setAmount] = useState('');
-    const [intention, setIntention] = useState<IntentionType>('Need');
     const [isRecurring, setIsRecurring] = useState(false);
     const [showDateWarning, setShowDateWarning] = useState(false);
     const [dateWarningMessage, setDateWarningMessage] = useState('');
@@ -131,7 +130,6 @@ const AddRecordDialog: React.FC<AddRecordDialogProps> = ({
         setDate(new Date()); // Use current date in user's timezone
         setCategoryId(1);
         setAmount('');
-        setIntention('Need');
         setIsRecurring(false);
     };
 
@@ -164,7 +162,7 @@ const AddRecordDialog: React.FC<AddRecordDialogProps> = ({
             if (recordType === 'Expense') {
                 const expenseData = {
                     ...baseRecordData,
-                    intention
+                    intention: 'Need' as IntentionType
                 };
 
                 if (isRecurring) {
@@ -356,31 +354,6 @@ const AddRecordDialog: React.FC<AddRecordDialogProps> = ({
                         </Select>
                     </FormControl>
                     
-                    {/* Show intention field only for expenses */}
-                    {recordType === 'Expense' && (
-                        <FormControl fullWidth required>
-                            <InputLabel sx={{ color: isDarkMode ? '#b0b0b0' : undefined }}>Intention</InputLabel>
-                            <Select
-                                value={intention}
-                                label="Intention"
-                                onChange={(e) => setIntention(e.target.value as IntentionType)}
-                                sx={{
-                                    '& .MuiOutlinedInput-notchedOutline': {
-                                        borderColor: isDarkMode ? '#333333' : undefined
-                                    },
-                                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                                        borderColor: isDarkMode ? '#666666' : undefined
-                                    }
-                                }}
-                            >
-                                {['Need', 'Want', 'Saving'].map((int) => (
-                                    <MenuItem key={int} value={int}>
-                                        {int}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-                    )}
                     
                     {/* Show recurring checkbox only for expenses */}
                     {recordType === 'Expense' && (

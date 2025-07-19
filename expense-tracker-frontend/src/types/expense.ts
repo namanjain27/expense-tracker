@@ -27,6 +27,5 @@ export const CATEGORIES: { [key: number]: string } = {
     5: "Utility",
     6: "Recreation",
     7: "Health",
-    8: "Savings",
-    9: "Debt"
+    8: "Debt"
 }; 

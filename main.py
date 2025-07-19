@@ -128,8 +128,7 @@ CATEGORIES = {
     5: "Utility",
     6: "Recreation",
     7: "Health",
-    8: "Savings",
-    9: "Debt"
+    8: "Debt"
 }
 
 INCOME_CATEGORIES = {
@@ -149,7 +148,9 @@ SAVING_CATEGORIES = {
     3: "Recurring deposit",
     4: "Fixed Deposit",
     5: "Mutual Fund",
-    6: "Others"
+    6: "Others",
+    7: "Saving Goal",
+    8: "Saving Goal Redeemed"
 }
 
 # Pydantic models for request/response
@@ -357,6 +358,10 @@ class Account(AccountBase):
     created_at: datetime
     modified_at: datetime
 
+class AccountBalance(BaseModel):
+    apparent_balance: float
+    real_balance: float
+
 @app.post("/predict-category")
 def predict_category(request: CategoryPredictionRequest):
     try:
@@ -472,7 +477,8 @@ def read_expenses(month: int = None, year: int = None, skip: int = 0, limit: int
             models.Expense.date >= start_date,
             models.Expense.date < end_date
         )
-    expenses = query.offset(skip).limit(limit).all()
+    # Sort by date first, then by created_at for consistent ordering
+    expenses = query.order_by(models.Expense.date.desc(), models.Expense.created_at.desc()).offset(skip).limit(limit).all()
     return [Expense(**expense.__dict__) for expense in expenses]
 
 @app.get("/expenses/total")
@@ -988,7 +994,8 @@ def read_incomes(month: int = None, year: int = None, skip: int = 0, limit: int 
             models.Income.date >= start_date,
             models.Income.date < end_date
         )
-    incomes = query.offset(skip).limit(limit).all()
+    # Sort by date first, then by created_at for consistent ordering
+    incomes = query.order_by(models.Income.date.desc(), models.Income.created_at.desc()).offset(skip).limit(limit).all()
     return [Income(**income.__dict__) for income in incomes]
 
 @app.delete("/income/{income_id}", tags=["Income"])
@@ -1074,7 +1081,8 @@ def read_savings(month: int = None, year: int = None, skip: int = 0, limit: int 
             models.Saving.date >= start_date,
             models.Saving.date < end_date
         )
-    savings = query.offset(skip).limit(limit).all()
+    # Sort by date first, then by created_at for consistent ordering
+    savings = query.order_by(models.Saving.date.desc(), models.Saving.created_at.desc()).offset(skip).limit(limit).all()
     return [Saving(**saving.__dict__) for saving in savings]
 
 @app.delete("/savings/{saving_id}", tags=["Savings"])
@@ -1099,28 +1107,34 @@ def get_total_savings(month: int = None, year: int = None, db: Session = Depends
         else:
             end_date = date(year, month + 1, 1)
         
-        # Get overall total for the month
+        # Get overall total for the month (exclude "Saving Goal Redeemed" category)
         total = query.filter(
             models.Saving.date >= start_date,
-            models.Saving.date < end_date
+            models.Saving.date < end_date,
+            models.Saving.category_id != 8  # Exclude "Saving Goal Redeemed" category
         ).with_entities(func.sum(models.Saving.amount)).scalar()
         
-        # Get category-wise totals for the month
+        # Get category-wise totals for the month (exclude "Saving Goal Redeemed" category)
         category_totals = query.with_entities(
             models.Saving.category_id,
             func.sum(models.Saving.amount).label('total')
         ).filter(
             models.Saving.date >= start_date,
-            models.Saving.date < end_date
+            models.Saving.date < end_date,
+            models.Saving.category_id != 8  # Exclude "Saving Goal Redeemed" category
         ).group_by(models.Saving.category_id).all()
     else:
-        # Get overall total
-        total = query.with_entities(func.sum(models.Saving.amount)).scalar()
+        # Get overall total (exclude "Saving Goal Redeemed" category)
+        total = query.filter(
+            models.Saving.category_id != 8  # Exclude "Saving Goal Redeemed" category
+        ).with_entities(func.sum(models.Saving.amount)).scalar()
         
-        # Get category-wise totals
+        # Get category-wise totals (exclude "Saving Goal Redeemed" category)
         category_totals = query.with_entities(
             models.Saving.category_id,
             func.sum(models.Saving.amount).label('total')
+        ).filter(
+            models.Saving.category_id != 8  # Exclude "Saving Goal Redeemed" category
         ).group_by(models.Saving.category_id).all()
     
     # Convert category IDs to names and format the response
@@ -1163,6 +1177,70 @@ def update_account_balance(account_id: int, account: AccountCreate, db: Session 
     db.commit()
     db.refresh(db_account)
     return Account(**db_account.__dict__)
+
+@app.get("/accounts/balance", response_model=AccountBalance, tags=["Accounts"])
+def get_account_balance(db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
+    # Get user's account
+    user_account = db.query(models.Account).filter(models.Account.user_id == current_user.id).first()
+    if not user_account:
+        raise HTTPException(status_code=404, detail="Account not found. Please create an account first.")
+    
+    # Apparent balance is the balance stored in the database (unaffected by saving goals)
+    apparent_balance = user_account.balance
+    
+    # Calculate real balance considering transactions after account's modified_at
+    # Only consider records that meet the criteria:
+    # (created_at of record > updated_at of account) && (date of record >= Date(update_at) of account)
+    
+    account_modified_date = user_account.modified_at.date()
+    
+    # Get income records that affect the balance
+    relevant_income = db.query(func.sum(models.Income.amount)).filter(
+        models.Income.user_id == current_user.id,
+        models.Income.created_at > user_account.modified_at,  # created_at > modified_at
+        models.Income.date >= account_modified_date  # date >= Date(modified_at)
+    ).scalar() or 0
+    
+    # Get expense records that affect the balance
+    relevant_expenses = db.query(func.sum(models.Expense.amount)).filter(
+        models.Expense.user_id == current_user.id,
+        models.Expense.created_at > user_account.modified_at,  # created_at > modified_at
+        models.Expense.date >= account_modified_date  # date >= Date(modified_at)
+    ).scalar() or 0
+    
+    # Get saving records that affect the balance
+    relevant_savings = db.query(func.sum(models.Saving.amount)).filter(
+        models.Saving.user_id == current_user.id,
+        models.Saving.created_at > user_account.modified_at,  # created_at > modified_at
+        models.Saving.date >= account_modified_date  # date >= Date(modified_at)
+    ).scalar() or 0
+    
+    # Get only "Saving Goal" category records for real balance calculation
+    relevant_saving_goals = db.query(func.sum(models.Saving.amount)).filter(
+        models.Saving.user_id == current_user.id,
+        models.Saving.category_id == 7,  # "Saving Goal" category
+        models.Saving.created_at > user_account.modified_at,  # created_at > modified_at
+        models.Saving.date >= account_modified_date  # date >= Date(modified_at)
+    ).scalar() or 0
+    
+    # Calculate balances
+    # Apparent balance = DB balance + net effect of transactions after account's last manual update
+    # (income - expenses - savings) for transactions that meet the criteria
+    apparent_balance = apparent_balance + relevant_income - relevant_expenses - relevant_savings
+    
+    # Real balance = apparent balance - saving goals (money locked away in saving goals)
+    # But we need to consider ALL saving goal records, not just those after modified_at
+    all_saving_goals = db.query(func.sum(models.Saving.amount)).filter(
+        models.Saving.user_id == current_user.id,
+        models.Saving.category_id == 7  # "Saving Goal" category
+    ).scalar() or 0
+    
+    real_balance = apparent_balance - all_saving_goals
+    
+    return AccountBalance(
+        apparent_balance=apparent_balance,
+        real_balance=real_balance
+    )
 
 # Monthly Summary API
 @app.get("/monthly-summary", tags=["Summary"])
@@ -1218,14 +1296,15 @@ def get_monthly_summary(month: int, year: int, db: Session = Depends(get_db), cu
         models.Income.date < end_date
     ).group_by(models.Income.category_id).all()
     
-    # Get category breakdown for savings
+    # Get category breakdown for savings (exclude "Saving Goal Redeemed" category)
     saving_categories = db.query(
         models.Saving.category_id,
         func.sum(models.Saving.amount).label('total')
     ).filter(
         models.Saving.user_id == current_user.id,
         models.Saving.date >= start_date,
-        models.Saving.date < end_date
+        models.Saving.date < end_date,
+        models.Saving.category_id != 8  # Exclude "Saving Goal Redeemed" category
     ).group_by(models.Saving.category_id).all()
     
     return {
@@ -1286,9 +1365,24 @@ class SavingGoalCreate(SavingGoalBase):
 
 class SavingGoal(SavingGoalBase):
     id: int
+    status: str = "active"
+    is_completed: bool = False
+    redeemed_at: datetime | None = None
+    created_at: datetime
+
+class SavingGoalEdit(BaseModel):
+    name: str | None = None
+    target_date: date | None = None
+    target_amount: float | None = None
+
+    class Config:
+        orm_mode = True
 
 class AddAmountRequest(BaseModel):
     amount: float
+
+class RedeemGoalRequest(BaseModel):
+    pass
 
 
 @app.post("/saving-goals/", response_model=SavingGoal)
@@ -1297,11 +1391,47 @@ def create_saving_goal(goal: SavingGoalCreate, db: Session = Depends(get_db), cu
     db.add(db_goal)
     db.commit()
     db.refresh(db_goal)
+    
+    # Create linked savings record if initial saved_amount > 0
+    if db_goal.saved_amount > 0:
+        savings_record = models.Saving(
+            user_id=current_user.id,
+            name=f"{db_goal.name}",
+            amount=db_goal.saved_amount,
+            date=datetime.now().date(),
+            category_id=7,  # "Saving Goal" category
+            created_at=datetime.now()
+        )
+        db.add(savings_record)
+        db.commit()
+    
     return db_goal
 
 @app.get("/saving-goals/", response_model=List[SavingGoal])
 def get_saving_goals(db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
     goals = db.query(models.SavingGoal).filter(models.SavingGoal.user_id == current_user.id).all()
+    
+    # Calculate saved_amount from savings records for each goal
+    for goal in goals:
+        # Calculate from both "Saving Goal" and "Saving Goal Redeemed" categories
+        total_saved = db.query(func.sum(models.Saving.amount)).filter(
+            models.Saving.user_id == current_user.id,
+            models.Saving.category_id.in_([7, 8]),  # Both "Saving Goal" and "Saving Goal Redeemed" categories
+            models.Saving.name == f"{goal.name}"
+        ).scalar() or 0
+        
+        goal.saved_amount = total_saved
+        
+        # Update completion status based on calculated amount
+        if total_saved >= goal.target_amount:
+            goal.is_completed = True
+            if goal.status == "active":
+                goal.status = "completed"
+        else:
+            goal.is_completed = False
+            if goal.status == "completed":
+                goal.status = "active"
+    
     return goals
 
 @app.put("/saving-goals/{goal_id}", response_model=SavingGoal)
@@ -1323,7 +1453,114 @@ def add_amount_to_saving_goal(goal_id: int, request: AddAmountRequest, db: Sessi
     if not db_goal:
         raise HTTPException(status_code=404, detail="Saving goal not found or not authorized")
 
-    db_goal.saved_amount += request.amount
+    if db_goal.status == "redeemed":
+        raise HTTPException(status_code=400, detail="Cannot add amount to redeemed goal")
+
+    # Create linked savings record
+    savings_record = models.Saving(
+        user_id=current_user.id,
+        name=f"{db_goal.name}",
+        amount=request.amount,
+        date=datetime.now().date(),
+        category_id=7,  # "Saving Goal" category
+        created_at=datetime.now()
+    )
+    db.add(savings_record)
+    
+    # Calculate total saved amount from savings records
+    total_saved = db.query(func.sum(models.Saving.amount)).filter(
+        models.Saving.user_id == current_user.id,
+        models.Saving.category_id == 7,  # "Saving Goal" category
+        models.Saving.name == f"{db_goal.name}"
+    ).scalar() or 0
+    total_saved += request.amount  # Add the new amount
+    
+    db_goal.saved_amount = total_saved
+    
+    # Check if goal is completed
+    if total_saved >= db_goal.target_amount:
+        db_goal.is_completed = True
+        db_goal.status = "completed"
+    
+    db.commit()
+    db.refresh(db_goal)
+    return db_goal
+
+@app.put("/saving-goals/{goal_id}/edit", response_model=SavingGoal)
+def edit_saving_goal(goal_id: int, goal_update: SavingGoalEdit, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
+    db_goal = db.query(models.SavingGoal).filter(models.SavingGoal.id == goal_id, models.SavingGoal.user_id == current_user.id).first()
+    if not db_goal:
+        raise HTTPException(status_code=404, detail="Saving goal not found or not authorized")
+    
+    if db_goal.status == "redeemed":
+        raise HTTPException(status_code=400, detail="Cannot edit redeemed goal")
+    
+    # Store old name for updating linked records
+    old_name = db_goal.name
+    
+    # Update goal fields
+    update_data = goal_update.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_goal, field, value)
+    
+    # Check if goal completion status changed
+    if db_goal.saved_amount >= db_goal.target_amount:
+        db_goal.is_completed = True
+        db_goal.status = "completed"
+    else:
+        db_goal.is_completed = False
+        db_goal.status = "active"
+    
+    # Update linked savings records if name changed
+    if goal_update.name and goal_update.name != old_name:
+        linked_savings = db.query(models.Saving).filter(
+            models.Saving.user_id == current_user.id,
+            models.Saving.category_id == 7,  # "Saving Goal" category
+            models.Saving.name == f"{old_name}"
+        ).all()
+        
+        for saving in linked_savings:
+            saving.name = f"{goal_update.name}"
+    
+    db.commit()
+    db.refresh(db_goal)
+    return db_goal
+
+@app.post("/saving-goals/{goal_id}/redeem", response_model=SavingGoal)
+def redeem_saving_goal(goal_id: int, request: RedeemGoalRequest, db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
+    db_goal = db.query(models.SavingGoal).filter(models.SavingGoal.id == goal_id, models.SavingGoal.user_id == current_user.id).first()
+    if not db_goal:
+        raise HTTPException(status_code=404, detail="Saving goal not found or not authorized")
+    
+    if db_goal.status == "redeemed":
+        raise HTTPException(status_code=400, detail="Goal already redeemed")
+    
+    # Update goal status (maintain is_completed flag for achieved goals)
+    was_completed = db_goal.is_completed
+    db_goal.status = "redeemed"
+    db_goal.redeemed_at = datetime.now()
+    # Keep is_completed flag intact for achieved goals
+    
+    # Update linked savings records category to "Saving Goal Redeemed"
+    linked_savings = db.query(models.Saving).filter(
+        models.Saving.user_id == current_user.id,
+        models.Saving.category_id == 7,  # "Saving Goal" category
+        models.Saving.name == f"{db_goal.name}"
+    ).all()
+    
+    for saving in linked_savings:
+        saving.category_id = 8  # "Saving Goal Redeemed" category
+    
+    # Get or create user account
+    user_account = db.query(models.Account).filter(models.Account.user_id == current_user.id).first()
+    if not user_account:
+        user_account = models.Account(user_id=current_user.id, balance=0.0, created_at=datetime.now())
+        db.add(user_account)
+    
+    # Add redeemed amount back to real balance
+    user_account.balance += db_goal.saved_amount
+    user_account.modified_at = datetime.now()
+    
     db.commit()
     db.refresh(db_goal)
     return db_goal
@@ -1334,9 +1571,19 @@ def delete_saving_goal(goal_id: int, db: Session = Depends(get_db), current_user
     if not db_goal:
         raise HTTPException(status_code=404, detail="Saving goal not found or not authorized")
 
+    # Delete linked savings records
+    linked_savings = db.query(models.Saving).filter(
+        models.Saving.user_id == current_user.id,
+        models.Saving.category_id.in_([7, 8]),  # "Saving Goal" and "Saving Goal Redeemed" categories
+        models.Saving.name == f"{db_goal.name}"
+    ).all()
+    
+    for saving in linked_savings:
+        db.delete(saving)
+    
     db.delete(db_goal)
     db.commit()
-    return {"message": "Saving goal deleted successfully"}
+    return {"message": "Saving goal and linked records deleted successfully"}
 
 @app.post("/auth/register", response_model=User)
 def register_user(user: UserCreate, db: Session = Depends(get_db)):

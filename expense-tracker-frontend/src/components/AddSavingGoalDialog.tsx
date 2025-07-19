@@ -15,6 +15,7 @@ const AddSavingGoalDialog: React.FC<AddSavingGoalDialogProps> = ({ open, onClose
     const [savedAmount, setSavedAmount] = useState('');
     const [dateError, setDateError] = useState('');
     const [savedAmountError, setSavedAmountError] = useState('');
+    const [targetAmountError, setTargetAmountError] = useState('');
 
     const handleAdd = () => {
         const newGoal = {
@@ -24,7 +25,7 @@ const AddSavingGoalDialog: React.FC<AddSavingGoalDialogProps> = ({ open, onClose
             saved_amount: parseFloat(savedAmount) || 0,
         };
 
-        if (newGoal.name && !isNaN(newGoal.target_amount) && newGoal.target_date && !dateError && !savedAmountError) {
+        if (newGoal.name && !isNaN(newGoal.target_amount) && newGoal.target_date && !dateError && !savedAmountError && !targetAmountError) {
             onAddGoal(newGoal);
             onClose();
             // Reset fields
@@ -32,6 +33,9 @@ const AddSavingGoalDialog: React.FC<AddSavingGoalDialogProps> = ({ open, onClose
             setTargetAmount('');
             setTargetDate('');
             setSavedAmount('');
+            setTargetAmountError('');
+            setSavedAmountError('');
+            setDateError('');
         }
     };
 
@@ -56,7 +60,22 @@ const AddSavingGoalDialog: React.FC<AddSavingGoalDialogProps> = ({ open, onClose
                     fullWidth
                     variant="outlined"
                     value={targetAmount}
-                    onChange={(e) => setTargetAmount(e.target.value)}
+                    onChange={(e) => {
+                        const value = e.target.value;
+                        setTargetAmount(value);
+                        if (value === '') {
+                            setTargetAmountError('');
+                        } else {
+                            const parsed = parseFloat(value);
+                            if (isNaN(parsed) || parsed <= 0) {
+                                setTargetAmountError('Target amount must be positive');
+                            } else {
+                                setTargetAmountError('');
+                            }
+                        }
+                    }}
+                    error={!!targetAmountError}
+                    helperText={targetAmountError}
                 />
                 <TextField
                     margin="dense"
@@ -113,7 +132,7 @@ const AddSavingGoalDialog: React.FC<AddSavingGoalDialogProps> = ({ open, onClose
             </DialogContent>
             <DialogActions>
                 <Button onClick={onClose}>Cancel</Button>
-                <Button onClick={handleAdd} disabled={!!dateError || !!savedAmountError}>Add</Button>
+                <Button onClick={handleAdd} disabled={!!dateError || !!savedAmountError || !!targetAmountError}>Add</Button>
             </DialogActions>
         </Dialog>
     );

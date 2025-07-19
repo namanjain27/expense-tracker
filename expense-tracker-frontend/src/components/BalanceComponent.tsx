@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import { Edit as EditIcon } from '@mui/icons-material';
 import { ThemeContext } from './Dashboard';
-import { api } from '../services/api';
+import { api, AccountBalance } from '../services/api';
 
 interface Account {
     id: number;
@@ -29,7 +29,7 @@ interface BalanceComponentProps {
 const BalanceComponent: React.FC<BalanceComponentProps> = ({ refreshTrigger }) => {
     const { isDarkMode } = useContext(ThemeContext);
     const [account, setAccount] = useState<Account | null>(null);
-    const [calculatedBalance, setCalculatedBalance] = useState<number>(0);
+    const [balanceData, setBalanceData] = useState<AccountBalance | null>(null);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [newBalance, setNewBalance] = useState<string>('');
     const [isHovered, setIsHovered] = useState(false);
@@ -40,40 +40,13 @@ const BalanceComponent: React.FC<BalanceComponentProps> = ({ refreshTrigger }) =
             if (accounts.length > 0) {
                 const userAccount = accounts[0];
                 setAccount(userAccount);
-                await calculateRealBalance(userAccount);
+                
+                // Fetch balance data from new API
+                const balance = await api.getAccountBalance();
+                setBalanceData(balance);
             }
         } catch (error) {
             console.error('Error fetching account data:', error);
-        }
-    };
-
-    const calculateRealBalance = async (userAccount: Account) => {
-        try {
-            const modifiedDate = new Date(userAccount.modified_at);
-            
-            // Get all records after the account's modified date
-            const [incomes, expenses, savings] = await Promise.all([
-                api.getIncomes(),
-                api.getExpenses(),
-                api.getSavings()
-            ]);
-
-            // Filter records that are after the account's modified date
-            const relevantIncomes = incomes.filter(income => new Date(income.date) > modifiedDate);
-            const relevantExpenses = expenses.filter(expense => new Date(expense.date) > modifiedDate);
-            const relevantSavings = savings.filter(saving => new Date(saving.date) > modifiedDate);
-
-            // Calculate totals
-            const totalIncome = relevantIncomes.reduce((sum, income) => sum + income.amount, 0);
-            const totalExpenses = relevantExpenses.reduce((sum, expense) => sum + expense.amount, 0);
-            const totalSavings = relevantSavings.reduce((sum, saving) => sum + saving.amount, 0);
-
-            // Real balance = account balance + income - expenses - savings
-            const realBalance = userAccount.balance + totalIncome - totalExpenses - totalSavings;
-            setCalculatedBalance(realBalance);
-        } catch (error) {
-            console.error('Error calculating balance:', error);
-            setCalculatedBalance(userAccount.balance);
         }
     };
 
@@ -95,7 +68,11 @@ const BalanceComponent: React.FC<BalanceComponentProps> = ({ refreshTrigger }) =
                     balance: parseFloat(newBalance)
                 });
                 setAccount(updatedAccount);
-                await calculateRealBalance(updatedAccount);
+                
+                // Fetch updated balance data
+                const balance = await api.getAccountBalance();
+                setBalanceData(balance);
+                
                 setIsEditDialogOpen(false);
                 setNewBalance('');
             } catch (error) {
@@ -110,7 +87,10 @@ const BalanceComponent: React.FC<BalanceComponentProps> = ({ refreshTrigger }) =
                 balance: 0
             });
             setAccount(newAccount);
-            setCalculatedBalance(0);
+            
+            // Fetch balance data for new account
+            const balance = await api.getAccountBalance();
+            setBalanceData(balance);
         } catch (error) {
             console.error('Error creating account:', error);
         }
@@ -207,7 +187,7 @@ const BalanceComponent: React.FC<BalanceComponentProps> = ({ refreshTrigger }) =
                             mb: 1
                         }}
                     >
-                        Real: ₹{calculatedBalance.toLocaleString()}
+                        Real: ₹{balanceData?.real_balance.toLocaleString() || '0'}
                     </Typography>
                     
                     <Typography 
@@ -218,7 +198,7 @@ const BalanceComponent: React.FC<BalanceComponentProps> = ({ refreshTrigger }) =
                             fontWeight: 500
                         }}
                     >
-                        Apparent: ₹{calculatedBalance.toLocaleString()}
+                        Apparent: ₹{balanceData?.apparent_balance.toLocaleString() || '0'}
                     </Typography>
 
                     {/* Edit Icon */}
@@ -297,7 +277,7 @@ const BalanceComponent: React.FC<BalanceComponentProps> = ({ refreshTrigger }) =
                             color: isDarkMode ? '#888888' : '#666666'
                         }}
                     >
-                        This will update your base account balance. The real balance will be recalculated based on your income, expenses, and savings after this update.
+                        This will update your base account balance. The apparent balance will include transactions after this update, and the real balance will show your available funds (excluding money locked in saving goals).
                     </Typography>
                 </DialogContent>
                 <DialogActions sx={{ 

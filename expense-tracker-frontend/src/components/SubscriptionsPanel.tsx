@@ -49,7 +49,7 @@ const SubscriptionsPanel = forwardRef<SubscriptionsPanelRef>((_, ref) => {
       });
       
       await api.updateSubscriptionEffectiveDate(subscription.id);
-      window.location.reload();
+      fetchSubscriptions();
     } catch (error) {
       console.error('Error paying subscription:', error);
     }
