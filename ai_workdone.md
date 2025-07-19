@@ -30,4 +30,10 @@ Fixed additional saving goals and UI issues: Fixed redeem button not showing for
 Final saving goals refinements: Excluded 'Saving Goal Redeemed' category from all analysis charts and totals; kept redeemed saving goal cards frozen with saved amount and progress bar intact; maintained 'completed' status tag for redeemed achieved goals to distinguish them from broken piggy banks; reverted ExpenseList to show Date only while implementing backend sorting by date first, then by created_at for consistent chronological ordering
 
 ## 08:00, 17-07-2025
-Fixed redeemed saving goals display: Updated get_saving_goals endpoint to calculate saved_amount from both 'Saving Goal' and 'Saving Goal Redeemed' categories, ensuring redeemed cards show total saved amount instead of 0; implemented dual status display showing both 'completed' and 'redeemed' chips for achieved goals that were redeemed 
+Fixed redeemed saving goals display: Updated get_saving_goals endpoint to calculate saved_amount from both 'Saving Goal' and 'Saving Goal Redeemed' categories, ensuring redeemed cards show total saved amount instead of 0; implemented dual status display showing both 'completed' and 'redeemed' chips for achieved goals that were redeemed
+
+## 08:15, 17-07-2025
+Implemented account balance distinction: Added new /accounts/balance endpoint that returns apparent_balance (DB value) and real_balance (apparent - saving goals); created AccountBalance interface and getAccountBalance API method; updated BalanceComponent to use new API and display different values for apparent vs real balance; removed incorrect balance calculation logic that was adding income/expenses; balance now properly reflects saving goals impact on available funds
+
+## 08:30, 17-07-2025
+Refined balance calculation logic to consider account modified_at timestamp: Updated get_account_balance endpoint to calculate apparent balance as DB balance plus net effect of transactions (income - expenses - savings) that meet criteria (created_at > modified_at AND date >= Date(modified_at)); real balance excludes all saving goal amounts to show available funds; updated BalanceComponent helper text to reflect new calculation methodology that only includes transactions after account's last manual update

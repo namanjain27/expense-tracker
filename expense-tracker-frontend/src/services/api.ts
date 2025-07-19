@@ -153,6 +153,11 @@ export interface DailyExpensesResponse {
   daily_expenses: DailyExpense[];
 }
 
+export interface AccountBalance {
+  apparent_balance: number;
+  real_balance: number;
+}
+
 export const api = {
   // Authentication APIs
   registerUser: async (userData: UserCreate): Promise<User> => {
@@ -332,6 +337,11 @@ export const api = {
 
   updateAccountBalance: async (accountId: number, account: { balance: number }) => {
     const response = await axiosInstance.put(`/accounts/${accountId}`, account);
+    return response.data;
+  },
+
+  getAccountBalance: async (): Promise<AccountBalance> => {
+    const response = await axiosInstance.get('/accounts/balance');
     return response.data;
   },
 

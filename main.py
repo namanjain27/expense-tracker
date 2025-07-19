@@ -358,6 +358,10 @@ class Account(AccountBase):
     created_at: datetime
     modified_at: datetime
 
+class AccountBalance(BaseModel):
+    apparent_balance: float
+    real_balance: float
+
 @app.post("/predict-category")
 def predict_category(request: CategoryPredictionRequest):
     try:
@@ -1173,6 +1177,70 @@ def update_account_balance(account_id: int, account: AccountCreate, db: Session 
     db.commit()
     db.refresh(db_account)
     return Account(**db_account.__dict__)
+
+@app.get("/accounts/balance", response_model=AccountBalance, tags=["Accounts"])
+def get_account_balance(db: Session = Depends(get_db), current_user: models.User = Depends(auth_service.get_current_user)):
+    # Get user's account
+    user_account = db.query(models.Account).filter(models.Account.user_id == current_user.id).first()
+    if not user_account:
+        raise HTTPException(status_code=404, detail="Account not found. Please create an account first.")
+    
+    # Apparent balance is the balance stored in the database (unaffected by saving goals)
+    apparent_balance = user_account.balance
+    
+    # Calculate real balance considering transactions after account's modified_at
+    # Only consider records that meet the criteria:
+    # (created_at of record > updated_at of account) && (date of record >= Date(update_at) of account)
+    
+    account_modified_date = user_account.modified_at.date()
+    
+    # Get income records that affect the balance
+    relevant_income = db.query(func.sum(models.Income.amount)).filter(
+        models.Income.user_id == current_user.id,
+        models.Income.created_at > user_account.modified_at,  # created_at > modified_at
+        models.Income.date >= account_modified_date  # date >= Date(modified_at)
+    ).scalar() or 0
+    
+    # Get expense records that affect the balance
+    relevant_expenses = db.query(func.sum(models.Expense.amount)).filter(
+        models.Expense.user_id == current_user.id,
+        models.Expense.created_at > user_account.modified_at,  # created_at > modified_at
+        models.Expense.date >= account_modified_date  # date >= Date(modified_at)
+    ).scalar() or 0
+    
+    # Get saving records that affect the balance
+    relevant_savings = db.query(func.sum(models.Saving.amount)).filter(
+        models.Saving.user_id == current_user.id,
+        models.Saving.created_at > user_account.modified_at,  # created_at > modified_at
+        models.Saving.date >= account_modified_date  # date >= Date(modified_at)
+    ).scalar() or 0
+    
+    # Get only "Saving Goal" category records for real balance calculation
+    relevant_saving_goals = db.query(func.sum(models.Saving.amount)).filter(
+        models.Saving.user_id == current_user.id,
+        models.Saving.category_id == 7,  # "Saving Goal" category
+        models.Saving.created_at > user_account.modified_at,  # created_at > modified_at
+        models.Saving.date >= account_modified_date  # date >= Date(modified_at)
+    ).scalar() or 0
+    
+    # Calculate balances
+    # Apparent balance = DB balance + net effect of transactions after account's last manual update
+    # (income - expenses - savings) for transactions that meet the criteria
+    apparent_balance = apparent_balance + relevant_income - relevant_expenses - relevant_savings
+    
+    # Real balance = apparent balance - saving goals (money locked away in saving goals)
+    # But we need to consider ALL saving goal records, not just those after modified_at
+    all_saving_goals = db.query(func.sum(models.Saving.amount)).filter(
+        models.Saving.user_id == current_user.id,
+        models.Saving.category_id == 7  # "Saving Goal" category
+    ).scalar() or 0
+    
+    real_balance = apparent_balance - all_saving_goals
+    
+    return AccountBalance(
+        apparent_balance=apparent_balance,
+        real_balance=real_balance
+    )
 
 # Monthly Summary API
 @app.get("/monthly-summary", tags=["Summary"])
