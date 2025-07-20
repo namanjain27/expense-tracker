@@ -141,7 +141,7 @@ const MonthlyTransactionList: React.FC<MonthlyTransactionListProps> = ({
                         alt="Monthly Transactions" 
                         style={{ width: '50px', height: '50px' }}
                     />
-                    Monthly Transactions
+                    Monthly TransX
                 </Typography>
                 <TextField
                     label="Search name or amount of transaction"

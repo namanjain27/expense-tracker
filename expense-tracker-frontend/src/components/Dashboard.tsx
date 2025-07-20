@@ -641,7 +641,7 @@ const Dashboard: React.FC = () => {
                         initialData={initialSubscriptionData}
                     />
 
-                    <Box
+                    {/* <Box
                         sx={{
                             mt: 4,
                             bgcolor: '#D9D9D9',
@@ -655,7 +655,7 @@ const Dashboard: React.FC = () => {
                         }}
                     >
                         Created By Naman Jain
-                    </Box>
+                    </Box> */}
                 </Container>
             </ThemeProvider>
         </ThemeContext.Provider>

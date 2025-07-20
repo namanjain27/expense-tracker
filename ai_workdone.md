@@ -37,3 +37,9 @@ Implemented account balance distinction: Added new /accounts/balance endpoint th
 
 ## 08:30, 17-07-2025
 Refined balance calculation logic to consider account modified_at timestamp: Updated get_account_balance endpoint to calculate apparent balance as DB balance plus net effect of transactions (income - expenses - savings) that meet criteria (created_at > modified_at AND date >= Date(modified_at)); real balance excludes all saving goal amounts to show available funds; updated BalanceComponent helper text to reflect new calculation methodology that only includes transactions after account's last manual update
+
+## 10:45, 20-07-2025
+Fixed timezone issues in date handling: Updated SubscriptionsPanel PAY NOW functionality to use user's local timezone instead of server timezone; modified backend AddAmountRequest model to accept optional date parameter; updated add_amount_to_saving_goal endpoint to use provided date; enhanced SavingGoalsPanel to send timezone-aware dates when adding amounts to saving goals; ensured consistent date handling across subscription payments and saving goal additions
+
+## 11:15, 20-07-2025
+Implemented subscription overdue functionality and payment dialog: Added overdue detection logic (current date > billing date + due period); implemented status chips for subscriptions (overdue/paid/active) similar to saving goals; created comprehensive payment dialog with Payment Date picker (defaulting to today), editable Amount field (defaulting to subscription amount), and calculated Next Billing Date display; reorganized subscription card layout to move Pay button next to amount for better visibility; enhanced Pay button to show error color for overdue subscriptions; ensured payment dialog changes don't affect basic recurring expense details
