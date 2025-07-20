@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, createContext } from 'react';
 import { Box, Button, Container, Paper, Typography, Tooltip } from '@mui/material';
-import Charts from './Charts';
+import MonthlyDataPanel from './MonthlyDataPanel';
 import { TotalExpenses } from '../types/expense';
 import { Expense, Income, Saving, RecordType } from '../types/records';
 import { api, DailyExpense } from '../services/api';
@@ -8,7 +8,6 @@ import { User } from '../types/user';
 import AddRecordDialog from './AddRecordDialog';
 import TransactionSummaryDialog from './TransactionSummaryDialog';
 import DeleteExpenseDialog from './DeleteExpenseDialog';
-import MonthlyTransactionList from './ExpenseList';
 import SubscriptionsPanel, { SubscriptionsPanelRef } from './SubscriptionsPanel';
 import BudgetDialog from './BudgetDialog';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
@@ -389,38 +388,12 @@ const Dashboard: React.FC = () => {
                 
                 {/* Navigation Bar */}
                 <NavigationBar
-                    selectedMonth={selectedMonth}
-                    selectedYear={selectedYear}
-                    onMonthChange={setSelectedMonth}
-                    onYearChange={setSelectedYear}
-                    availableMonths={availableMonths}
-                    availableYears={availableYears}
                     onNavigateToSection={handleNavigateToSection}
                     username={currentUser?.name || currentUser?.email || 'User'}
                     onLogout={handleLogout}
                 />
                 
                 <Container maxWidth="lg" sx={{ mt: 2, mb: 4 }}>
-                    {/* Budget Button moved to top right of content area */}
-                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
-                        <Button
-                            variant="contained"
-                            color="primary"
-                            onClick={() => setOpenBudgetDialog(true)}
-                            sx={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 1
-                            }}
-                        >
-                            <img 
-                                src="/budget (1).png" 
-                                alt="Budget" 
-                                style={{ width: '50px', height: '50px' }}
-                            />
-                            {months[selectedMonth - 1]} - Budget
-                        </Button>
-                    </Box>
                     
                     <Box sx={{ display: 'flex', gap: 3, flexDirection: 'column' }}>
                         {/* Balance and Actions Section */}
@@ -447,9 +420,9 @@ const Dashboard: React.FC = () => {
                                 </Typography>
                                 <Box sx={{ 
                                     display: 'grid', 
-                                    gridTemplateColumns: 'repeat(4, 1fr)', 
+                                    gridTemplateColumns: 'repeat(5, 1fr)', 
                                     gap: 2,
-                                    maxWidth: '800px'
+                                    maxWidth: '1000px'
                                 }}>
                                     <Button
                                         variant="contained"
@@ -545,6 +518,27 @@ const Dashboard: React.FC = () => {
                                             </Button>
                                         </span>
                                     </Tooltip>
+                                    <Button
+                                        variant="contained"
+                                        onClick={() => setOpenBudgetDialog(true)}
+                                        color="primary"
+                                        sx={{ 
+                                            aspectRatio: '3/2',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontSize: '0.875rem',
+                                            gap: 0.5
+                                        }}
+                                    >
+                                        <img 
+                                            src="/budget (1).png" 
+                                            alt="Budget" 
+                                            style={{ width: '40px', height: '40px' }}
+                                        />
+                                        Budget
+                                    </Button>
                                 </Box>
                                 {uploadError && <Typography color="error" sx={{ mt: 2 }}>{uploadError}</Typography>}
                                 <input
@@ -556,33 +550,28 @@ const Dashboard: React.FC = () => {
                                 />
                             </Paper>
                         </Box>
-                        {/* Charts Section */}
-                        <Box ref={chartsRef}>
-                            <Charts 
-                                selectedMonth={selectedMonth}
-                                selectedYear={selectedYear}
-                                refreshTrigger={refreshTrigger}
-                                totals={totals}
-                                dailyExpenses={dailyExpenses}
-                                lineGraphLoading={lineGraphLoading}
-                                lineGraphError={lineGraphError}
-                            />
-                        </Box>
-
-
-                        {/* Expense List - Full Width */}
-                        <Paper ref={expensesRef} sx={{ p: 2, scrollMarginTop: '80px' }}>
-                            <Box sx={{ height: '100%' }}>
-                                <MonthlyTransactionList
-                                    expenses={expenses}
-                                    incomes={incomes}
-                                    savings={savings}
-                                    onSelectRecord={setSelectedRecord}
-                                    selectedRecord={selectedRecord}
-                                    onDeleteClick={handleDeleteClick}
-                                />
-                            </Box>
-                        </Paper>
+                        {/* Monthly Data Panel */}
+                        <MonthlyDataPanel
+                            selectedMonth={selectedMonth}
+                            selectedYear={selectedYear}
+                            onMonthChange={setSelectedMonth}
+                            onYearChange={setSelectedYear}
+                            availableMonths={availableMonths}
+                            availableYears={availableYears}
+                            refreshTrigger={refreshTrigger}
+                            totals={totals}
+                            dailyExpenses={dailyExpenses}
+                            lineGraphLoading={lineGraphLoading}
+                            lineGraphError={lineGraphError}
+                            expenses={expenses}
+                            incomes={incomes}
+                            savings={savings}
+                            selectedRecord={selectedRecord}
+                            onSelectRecord={setSelectedRecord}
+                            onDeleteClick={handleDeleteClick}
+                            chartsRef={chartsRef}
+                            expensesRef={expensesRef}
+                        />
 
                         {/* Subscriptions Panel - Full Width */}
                         <Box ref={subscriptionsRef} sx={{ width: '100%', scrollMarginTop: '80px' }}>

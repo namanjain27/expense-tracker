@@ -1373,6 +1373,7 @@ class SavingGoalEdit(BaseModel):
 
 class AddAmountRequest(BaseModel):
     amount: float
+    sg_date: date | None = None
 
 class RedeemGoalRequest(BaseModel):
     pass
@@ -1450,11 +1451,12 @@ def add_amount_to_saving_goal(goal_id: int, request: AddAmountRequest, db: Sessi
         raise HTTPException(status_code=400, detail="Cannot add amount to redeemed goal")
 
     # Create linked savings record
+    record_date = request.sg_date if request.sg_date else datetime.now().date()
     savings_record = models.Saving(
         user_id=current_user.id,
         name=f"{db_goal.name}",
         amount=request.amount,
-        date=datetime.now().date(),
+        date=record_date,
         category_id=7,  # "Saving Goal" category
         created_at=datetime.now()
     )

@@ -3,10 +3,6 @@ import {
     AppBar, 
     Toolbar, 
     Box, 
-    FormControl, 
-    InputLabel, 
-    Select, 
-    MenuItem, 
     IconButton 
 } from '@mui/material';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
@@ -17,24 +13,12 @@ import NavigationButton from './NavigationButton';
 import ProfileDropdown from './ProfileDropdown';
 
 interface NavigationBarProps {
-    selectedMonth: number;
-    selectedYear: number;
-    onMonthChange: (month: number) => void;
-    onYearChange: (year: number) => void;
-    availableMonths: string[];
-    availableYears: number[];
     onNavigateToSection: (sectionId: string) => void;
     username?: string;
     onLogout?: () => void;
 }
 
 const NavigationBar: React.FC<NavigationBarProps> = ({
-    selectedMonth,
-    selectedYear,
-    onMonthChange,
-    onYearChange,
-    availableMonths,
-    availableYears,
     onNavigateToSection,
     username,
     onLogout
@@ -83,67 +67,8 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
                     </Box>
                 </Box>
 
-                {/* Right Section: Month/Year Selectors + Theme Toggle + Profile */}
+                {/* Right Section: Theme Toggle + Profile */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    {/* Month Selector */}
-                    <FormControl sx={{ minWidth: 120 }} size="small">
-                        <InputLabel sx={{ color: isDarkMode ? '#b0b0b0' : '#666666' }}>
-                            Month
-                        </InputLabel>
-                        <Select
-                            value={selectedMonth}
-                            label="Month"
-                            onChange={(e) => onMonthChange(Number(e.target.value))}
-                            sx={{
-                                color: isDarkMode ? '#ffffff' : '#000000',
-                                '& .MuiOutlinedInput-notchedOutline': {
-                                    borderColor: isDarkMode ? '#333333' : '#e0e0e0',
-                                },
-                                '&:hover .MuiOutlinedInput-notchedOutline': {
-                                    borderColor: isDarkMode ? '#555555' : '#cccccc',
-                                },
-                                '& .MuiSvgIcon-root': {
-                                    color: isDarkMode ? '#ffffff' : '#000000',
-                                }
-                            }}
-                        >
-                            {availableMonths.map((month, index) => (
-                                <MenuItem key={month} value={index + 1}>
-                                    {month}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
-
-                    {/* Year Selector */}
-                    <FormControl sx={{ minWidth: 120 }} size="small">
-                        <InputLabel sx={{ color: isDarkMode ? '#b0b0b0' : '#666666' }}>
-                            Year
-                        </InputLabel>
-                        <Select
-                            value={selectedYear}
-                            label="Year"
-                            onChange={(e) => onYearChange(Number(e.target.value))}
-                            sx={{
-                                color: isDarkMode ? '#ffffff' : '#000000',
-                                '& .MuiOutlinedInput-notchedOutline': {
-                                    borderColor: isDarkMode ? '#333333' : '#e0e0e0',
-                                },
-                                '&:hover .MuiOutlinedInput-notchedOutline': {
-                                    borderColor: isDarkMode ? '#555555' : '#cccccc',
-                                },
-                                '& .MuiSvgIcon-root': {
-                                    color: isDarkMode ? '#ffffff' : '#000000',
-                                }
-                            }}
-                        >
-                            {availableYears.map((year) => (
-                                <MenuItem key={year} value={year}>
-                                    {year}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
 
                     {/* Theme Toggle */}
                     <IconButton 
