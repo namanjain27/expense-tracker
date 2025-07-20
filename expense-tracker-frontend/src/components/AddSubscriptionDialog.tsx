@@ -211,39 +211,6 @@ const AddSubscriptionDialog: React.FC<AddSubscriptionDialogProps> = ({ open, onC
             InputLabelProps={{ shrink: true }}
             required
           />
-          
-          {/* Subscription Period */}
-          <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 2 }}>
-            <Typography variant="subtitle1" gutterBottom>Subscription Period</Typography>
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <FormControl fullWidth>
-                <InputLabel>Value</InputLabel>
-                <Select
-                  value={formData.subscription_period.value.toString()}
-                  onChange={handlePeriodChange('subscription_period', 'value')}
-                  label="Value"
-                  required
-                >
-                  {PERIOD_VALUES.map(value => (
-                    <MenuItem key={value} value={value}>{value}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <FormControl fullWidth>
-                <InputLabel>Unit</InputLabel>
-                <Select
-                  value={formData.subscription_period.unit}
-                  onChange={handlePeriodChange('subscription_period', 'unit')}
-                  label="Unit"
-                  required
-                >
-                  {PERIOD_UNITS.map(unit => (
-                    <MenuItem key={unit} value={unit}>{unit}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Box>
-          </Box>
 
           {/* Billing Period */}
           <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 2 }}>
@@ -300,6 +267,38 @@ const AddSubscriptionDialog: React.FC<AddSubscriptionDialogProps> = ({ open, onC
                 <Select
                   value={formData.due_period.unit}
                   onChange={handlePeriodChange('due_period', 'unit')}
+                  label="Unit"
+                  required
+                >
+                  {PERIOD_UNITS.map(unit => (
+                    <MenuItem key={unit} value={unit}>{unit}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+          </Box>
+          {/* Subscription Period */}
+          <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 2 }}>
+            <Typography variant="subtitle1" gutterBottom>Subscription Period</Typography>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <FormControl fullWidth>
+                <InputLabel>Value</InputLabel>
+                <Select
+                  value={formData.subscription_period.value.toString()}
+                  onChange={handlePeriodChange('subscription_period', 'value')}
+                  label="Value"
+                  required
+                >
+                  {PERIOD_VALUES.map(value => (
+                    <MenuItem key={value} value={value}>{value}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl fullWidth>
+                <InputLabel>Unit</InputLabel>
+                <Select
+                  value={formData.subscription_period.unit}
+                  onChange={handlePeriodChange('subscription_period', 'unit')}
                   label="Unit"
                   required
                 >

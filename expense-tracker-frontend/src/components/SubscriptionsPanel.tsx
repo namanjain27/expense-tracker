@@ -125,7 +125,7 @@ const SubscriptionsPanel = forwardRef<SubscriptionsPanelRef, SubscriptionsPanelP
                         src="subscriptions.png" 
                         alt="Subscriptions" 
                         style={{ width: '50px', height: '50px' }}
-                    /> Subscriptions
+                    /> Recurring Transactions and Subscriptions
           </Typography>
           <Button
             variant="contained"

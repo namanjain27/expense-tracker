@@ -12,7 +12,7 @@ import { ThemeContext } from './Dashboard';
 import { TotalExpenses } from '../types/expense';
 import { Expense, Income, Saving, RecordType } from '../types/records';
 import { DailyExpense } from '../services/api';
-import Charts from './Charts';
+import Charts from './charts';
 import MonthlyTransactionList from './ExpenseList';
 
 interface MonthlyDataPanelProps {
@@ -33,8 +33,8 @@ interface MonthlyDataPanelProps {
     selectedRecord: (Expense | Income | Saving) & { type: RecordType } | null;
     onSelectRecord: (record: (Expense | Income | Saving) & { type: RecordType } | null) => void;
     onDeleteClick: (record: (Expense | Income | Saving) & { type: RecordType }) => void;
-    chartsRef: React.RefObject<HTMLDivElement>;
-    expensesRef: React.RefObject<HTMLDivElement>;
+    chartsRef: React.RefObject<HTMLDivElement | null>;
+    expensesRef: React.RefObject<HTMLDivElement | null>;
 }
 
 const MonthlyDataPanel: React.FC<MonthlyDataPanelProps> = ({
@@ -169,16 +169,6 @@ const MonthlyDataPanel: React.FC<MonthlyDataPanelProps> = ({
 
             {/* Monthly Transactions Section */}
             <Box ref={expensesRef}>
-                <Typography 
-                    variant="h6" 
-                    sx={{ 
-                        mb: 2, 
-                        color: isDarkMode ? '#ffffff' : '#333333',
-                        fontWeight: 'bold'
-                    }}
-                >
-                    Monthly Transactions
-                </Typography>
                 <MonthlyTransactionList
                     expenses={expenses}
                     incomes={incomes}
