@@ -107,7 +107,6 @@ def _send_monthly_report_logic(db: Session, year: int, month: int, user_id: int)
 
     # Generate charts
     expense_by_category_chart_url = chart_service.generate_expense_by_category_chart(db, year, month, user_id)
-    intention_breakdown_pie_url = chart_service.generate_intention_breakdown_chart(db, year, month, user_id)
     daily_spend_line_chart_url = chart_service.generate_daily_spend_chart(db, year, month, user_id)
 
     with open(template_file, 'r') as file:
@@ -124,7 +123,6 @@ def _send_monthly_report_logic(db: Session, year: int, month: int, user_id: int)
     email_body = email_body.replace('{{top_expense_2}}', top_expense_2)
     email_body = email_body.replace('{{top_expense_3}}', top_expense_3)
     email_body = email_body.replace('{{expense_by_category_chart_url}}', expense_by_category_chart_url)
-    email_body = email_body.replace('{{intention_breakdown_pie_url}}', intention_breakdown_pie_url)
     email_body = email_body.replace('{{daily_spend_line_chart_url}}', daily_spend_line_chart_url)
 
     subject = f"TrackX - {report_date.strftime('%B %Y')} Monthly Report"

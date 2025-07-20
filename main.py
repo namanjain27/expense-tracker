@@ -1208,25 +1208,18 @@ def get_account_balance(db: Session = Depends(get_db), current_user: models.User
         models.Expense.date >= account_modified_date  # date >= Date(modified_at)
     ).scalar() or 0
     
-    # Get saving records that affect the balance
-    relevant_savings = db.query(func.sum(models.Saving.amount)).filter(
+    # Get saving records that affect the balance (exclude "Saving Goal" category from apparent balance)
+    relevant_savings_non_goal = db.query(func.sum(models.Saving.amount)).filter(
         models.Saving.user_id == current_user.id,
         models.Saving.created_at > user_account.modified_at,  # created_at > modified_at
-        models.Saving.date >= account_modified_date  # date >= Date(modified_at)
+        models.Saving.date >= account_modified_date,  # date >= Date(modified_at)
+        models.Saving.category_id != 7  # Exclude "Saving Goal" category
     ).scalar() or 0
     
-    # Get only "Saving Goal" category records for real balance calculation
-    relevant_saving_goals = db.query(func.sum(models.Saving.amount)).filter(
-        models.Saving.user_id == current_user.id,
-        models.Saving.category_id == 7,  # "Saving Goal" category
-        models.Saving.created_at > user_account.modified_at,  # created_at > modified_at
-        models.Saving.date >= account_modified_date  # date >= Date(modified_at)
-    ).scalar() or 0
-    
-    # Calculate balances
+    # Calculate apparent balance
     # Apparent balance = DB balance + net effect of transactions after account's last manual update
-    # (income - expenses - savings) for transactions that meet the criteria
-    apparent_balance = apparent_balance + relevant_income - relevant_expenses - relevant_savings
+    # (income - expenses - savings excluding saving goals) for transactions that meet the criteria
+    apparent_balance = apparent_balance + relevant_income - relevant_expenses - relevant_savings_non_goal
     
     # Real balance = apparent balance - saving goals (money locked away in saving goals)
     # But we need to consider ALL saving goal records, not just those after modified_at

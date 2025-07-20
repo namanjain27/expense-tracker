@@ -16,7 +16,11 @@ export interface SubscriptionsPanelRef {
   fetchSubscriptions: () => void;
 }
 
-const SubscriptionsPanel = forwardRef<SubscriptionsPanelRef>((_, ref) => {
+interface SubscriptionsPanelProps {
+  onPaymentSuccess?: () => void;
+}
+
+const SubscriptionsPanel = forwardRef<SubscriptionsPanelRef, SubscriptionsPanelProps>(({ onPaymentSuccess }, ref) => {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingSubscription, setEditingSubscription] = useState<Subscription | null>(null);
@@ -50,6 +54,8 @@ const SubscriptionsPanel = forwardRef<SubscriptionsPanelRef>((_, ref) => {
       
       await api.updateSubscriptionEffectiveDate(subscription.id);
       fetchSubscriptions();
+      // Notify parent component to refresh charts and transaction list
+      onPaymentSuccess?.();
     } catch (error) {
       console.error('Error paying subscription:', error);
     }
@@ -108,7 +114,7 @@ const SubscriptionsPanel = forwardRef<SubscriptionsPanelRef>((_, ref) => {
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Typography variant="h5" component="div" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <img 
-                        src="/src/assets/colored icons/subscriptions.png" 
+                        src="subscriptions.png" 
                         alt="Subscriptions" 
                         style={{ width: '50px', height: '50px' }}
                     /> Subscriptions

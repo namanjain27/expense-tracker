@@ -105,7 +105,7 @@ const SavingGoalsPanel: React.FC<SavingGoalsPanelProps> = ({ onDataChange }) => 
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                     <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <img 
-                            src="/src/assets/colored icons/luggage.png" 
+                            src="luggage.png" 
                             alt="Saving Goals" 
                             style={{ width: '50px', height: '50px' }}
                         />Saving Goals
@@ -128,7 +128,7 @@ const SavingGoalsPanel: React.FC<SavingGoalsPanelProps> = ({ onDataChange }) => 
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Typography variant="h6"sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <img 
-                        src="/src/assets/colored icons/luggage.png" 
+                        src="luggage.png" 
                         alt="Saving Goals" 
                         style={{ width: '50px', height: '50px' }}
                     />Saving Goals
