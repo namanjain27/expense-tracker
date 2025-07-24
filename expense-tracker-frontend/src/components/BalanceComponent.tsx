@@ -171,7 +171,7 @@ const BalanceComponent: React.FC<BalanceComponentProps> = ({ refreshTrigger }) =
                             gap: 2
                         }}
                     ><img 
-                    src="/src/assets/colored icons/balance.png" 
+                    src="balance.png" 
                     alt="Monthly Overview" 
                     style={{ width: '50px', height: '50px'}}
                     />

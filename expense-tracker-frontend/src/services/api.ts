@@ -416,8 +416,9 @@ export const api = {
     return response.data;
   },
 
-  addAmountToGoal: async (id: number, amount: number): Promise<SavingGoal> => {
-    const response = await axiosInstance.post(`/saving-goals/${id}/add-amount`, { amount });
+  addAmountToGoal: async (id: number, amount: number, date: string): Promise<SavingGoal> => {
+    const requestData = { amount, date };
+    const response = await axiosInstance.post(`/saving-goals/${id}/add-amount`, requestData);
     return response.data;
   },
 

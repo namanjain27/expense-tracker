@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import CalendarIcon from '../assets/icons/3dicons-calender-front-color.png';
-import TravelIcon from '../assets/icons/3dicons-travel-dynamic-color.png';
-import RocketIcon from '../assets/icons/3dicons-rocket-front-color.png';
-import ComputerIcon from '../assets/icons/3dicons-computer-dynamic-color.png';
-import RupeeIcon from '../assets/icons/3dicons-rupee-dynamic-color.png';
-import CalculatorIcon from '../assets/icons/3dicons-calculator-front-color.png';
-import MailIcon from '../assets/icons/3dicons-mail-front-color.png';
-import WalletIcon from '../assets/icons/3dicons-wallet-front-color.png';
-import TargetIcon from '../assets/icons/3dicons-target-front-color.png';
-import CreditCardIcon from '../assets/icons/3dicons-credit-card-front-color.png';
-import ChartIcon from '../assets/icons/3dicons-chart-dynamic-color.png';
+const CalendarIcon = '/icons/3dicons-calender-front-color.png';
+const TravelIcon = '/icons/3dicons-travel-dynamic-color.png';
+const RocketIcon = '/icons/3dicons-rocket-front-color.png';
+const ComputerIcon = '/icons/3dicons-computer-dynamic-color.png';
+const RupeeIcon = '/icons/3dicons-rupee-dynamic-color.png';
+const CalculatorIcon = '/icons/3dicons-calculator-front-color.png';
+const MailIcon = '/icons/3dicons-mail-front-color.png';
+const WalletIcon = '/icons/3dicons-wallet-front-color.png';
+const TargetIcon = '/icons/3dicons-target-front-color.png';
+const CreditCardIcon = '/icons/3dicons-credit-card-front-color.png';
+const ChartIcon = '/icons/3dicons-chart-dynamic-color.png';
 import logo from '../assets/logo.png';
 import { api } from '../services/api';
 

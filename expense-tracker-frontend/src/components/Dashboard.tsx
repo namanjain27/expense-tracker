@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useRef, createContext } from 'react';
 import { Box, Button, Container, Paper, Typography, Tooltip } from '@mui/material';
-import { Doughnut, Line, Pie } from 'react-chartjs-2';
-import { Chart as ChartJS, ArcElement, Tooltip as ChartTooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, Title } from 'chart.js';
+import MonthlyDataPanel from './MonthlyDataPanel';
 import { TotalExpenses } from '../types/expense';
 import { Expense, Income, Saving, RecordType } from '../types/records';
 import { api, DailyExpense } from '../services/api';
@@ -9,10 +8,8 @@ import { User } from '../types/user';
 import AddRecordDialog from './AddRecordDialog';
 import TransactionSummaryDialog from './TransactionSummaryDialog';
 import DeleteExpenseDialog from './DeleteExpenseDialog';
-import MonthlyTransactionList from './ExpenseList';
 import SubscriptionsPanel, { SubscriptionsPanelRef } from './SubscriptionsPanel';
 import BudgetDialog from './BudgetDialog';
-import BudgetComparison from './BudgetComparison';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import SavingGoalsPanel from './SavingGoalsPanel';
@@ -20,7 +17,6 @@ import MonthlyReportDialog from './MonthlyReportDialog';
 import AddSubscriptionDialog from './AddSubscriptionDialog';
 import NavigationBar from './NavigationBar';
 import BalanceComponent from './BalanceComponent';
-import TriColorChart from './TriColorChart';
 
 // Create theme context
 export const ThemeContext = createContext({
@@ -43,7 +39,6 @@ interface TransactionSummaryData {
     total_transcations: number;
 }
 
-ChartJS.register(ArcElement, ChartTooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, Title);
 
 const Dashboard: React.FC = () => {
     const [isDarkMode, setIsDarkMode] = useState(true);
@@ -189,15 +184,19 @@ const Dashboard: React.FC = () => {
         fetchDailyExpenses();
     }, [selectedMonth, selectedYear]);
 
+    // Centralized data refresh function
+    const refreshAllData = async () => {
+        await Promise.all([
+            fetchData(),
+            fetchDailyExpenses()
+        ]);
+        setRefreshTrigger(prev => prev + 1);
+    };
+
     const handleAddExpense = async (expense: Omit<Expense, 'id' | 'category' | 'created_at'>) => {
         try {
             await api.createExpense(expense);
-            // Reload all data
-            await Promise.all([
-                fetchData(),
-                fetchDailyExpenses()
-            ]);
-            setRefreshTrigger(prev => prev + 1);
+            await refreshAllData();
             setIsAddDialogOpen(false);
             subscriptionsPanelRef.current?.fetchSubscriptions();
         } catch (error) {
@@ -208,12 +207,7 @@ const Dashboard: React.FC = () => {
     const handleAddIncome = async (income: Omit<Income, 'id' | 'category' | 'created_at'>) => {
         try {
             await api.createIncome(income);
-            // Reload data (you may want to add income-specific data fetching here)
-            await Promise.all([
-                fetchData(),
-                fetchDailyExpenses()
-            ]);
-            setRefreshTrigger(prev => prev + 1);
+            await refreshAllData();
             setIsAddDialogOpen(false);
         } catch (error) {
             console.error('Error adding income:', error);
@@ -223,12 +217,7 @@ const Dashboard: React.FC = () => {
     const handleAddSaving = async (saving: Omit<Saving, 'id' | 'category' | 'created_at'>) => {
         try {
             await api.createSaving(saving);
-            // Reload data (you may want to add saving-specific data fetching here)
-            await Promise.all([
-                fetchData(),
-                fetchDailyExpenses()
-            ]);
-            setRefreshTrigger(prev => prev + 1);
+            await refreshAllData();
             setIsAddDialogOpen(false);
         } catch (error) {
             console.error('Error adding saving:', error);
@@ -267,12 +256,7 @@ const Dashboard: React.FC = () => {
                 default:
                     throw new Error(`Unknown record type: ${type}`);
             }
-            // Reload all data
-            await Promise.all([
-                fetchData(),
-                fetchDailyExpenses()
-            ]);
-            setRefreshTrigger(prev => prev + 1);  // Increment refresh trigger
+            await refreshAllData();
             setIsDeleteDialogOpen(false);
             setSelectedRecord(null);
         } catch (error) {
@@ -285,47 +269,6 @@ const Dashboard: React.FC = () => {
         setIsDeleteDialogOpen(true);
     };
 
-    const chartData = {
-        labels: totals ? Object.keys(totals.category_breakdown) : [],
-        datasets: [{
-            data: totals ? Object.values(totals.category_breakdown) : [],
-            backgroundColor: [
-                '#9ACD32',  // Food - Green
-                '#36A2EB',  // Housing - Blue
-                '#FFCE56',  // Transportation - Yellow
-                '#4BC0C0',  // Personal - Teal
-                '#9966FF',  // Utility - Purple
-                '#FF9F40',  // Recreation - Orange
-                '#FF6384',  // Health - Pink
-                '#FF5252'   // Debt - Red
-            ]
-        }]
-    };
-
-    const chartOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            tooltip: {
-                callbacks: {
-                    label: (context: any) => {
-                        const label = context.label || '';
-                        const value = context.raw || 0;
-                        const total = totals?.overall_total || 0;
-                        const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                        return `${label}: ₹${value.toFixed(2)} (${percentage}%)`;
-                    }
-                }
-            },
-            legend: {
-                position: 'top' as const,
-                labels: {
-                    boxWidth: 15,
-                    padding: 15
-                }
-            }
-        }
-    };
 
 
     const months = [
@@ -349,60 +292,6 @@ const Dashboard: React.FC = () => {
         (_, i) => currentYear - i
     ).filter(year => year <= currentYear); // Ensure no future years
 
-    const lineChartData = {
-        labels: dailyExpenses.map(expense => {
-            const date = new Date(expense.date);
-            return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
-        }),
-        datasets: [{
-            label: 'Daily Expenses',
-            data: dailyExpenses.map(expense => expense.amount),
-            fill: false,
-            borderColor: 'rgb(75, 192, 192)',
-            tension: 0.1
-        }]
-    };
-
-    const lineChartOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            title: {
-                display: true,
-                text: 'Daily Expense Variation'
-            },
-            tooltip: {
-                callbacks: {
-                    label: (context: any) => {
-                        const value = context.raw || 0;
-                        return `Amount: ₹${value.toFixed(2)}`;
-                    }
-                }
-            }
-        },
-        scales: {
-            y: {
-                beginAtZero: true,
-                title: {
-                    display: true,
-                    text: 'Amount (₹)'
-                },
-                ticks: {
-                    callback: (value: any) => `₹${value}`
-                }
-            },
-            x: {
-                title: {
-                    display: true,
-                    text: 'Date'
-                },
-                ticks: {
-                    maxRotation: 45,
-                    minRotation: 45
-                }
-            }
-        }
-    };
 
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -499,38 +388,12 @@ const Dashboard: React.FC = () => {
                 
                 {/* Navigation Bar */}
                 <NavigationBar
-                    selectedMonth={selectedMonth}
-                    selectedYear={selectedYear}
-                    onMonthChange={setSelectedMonth}
-                    onYearChange={setSelectedYear}
-                    availableMonths={availableMonths}
-                    availableYears={availableYears}
                     onNavigateToSection={handleNavigateToSection}
                     username={currentUser?.name || currentUser?.email || 'User'}
                     onLogout={handleLogout}
                 />
                 
                 <Container maxWidth="lg" sx={{ mt: 2, mb: 4 }}>
-                    {/* Budget Button moved to top right of content area */}
-                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
-                        <Button
-                            variant="contained"
-                            color="primary"
-                            onClick={() => setOpenBudgetDialog(true)}
-                            sx={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 1
-                            }}
-                        >
-                            <img 
-                                src="/src/assets/colored icons/budget (1).png" 
-                                alt="Budget" 
-                                style={{ width: '50px', height: '50px' }}
-                            />
-                            {months[selectedMonth - 1]} - Budget
-                        </Button>
-                    </Box>
                     
                     <Box sx={{ display: 'flex', gap: 3, flexDirection: 'column' }}>
                         {/* Balance and Actions Section */}
@@ -557,9 +420,9 @@ const Dashboard: React.FC = () => {
                                 </Typography>
                                 <Box sx={{ 
                                     display: 'grid', 
-                                    gridTemplateColumns: 'repeat(4, 1fr)', 
+                                    gridTemplateColumns: 'repeat(5, 1fr)', 
                                     gap: 2,
-                                    maxWidth: '800px'
+                                    maxWidth: '1000px'
                                 }}>
                                     <Button
                                         variant="contained"
@@ -575,7 +438,7 @@ const Dashboard: React.FC = () => {
                                         }}
                                     >
                                         <img 
-                                            src="/src/assets/colored icons/Add record.png" 
+                                            src="/Add record.png" 
                                             alt="Add Record" 
                                             style={{ width: '40px', height: '40px' }}
                                         />
@@ -597,7 +460,7 @@ const Dashboard: React.FC = () => {
                                             }}
                                         >
                                             <img 
-                                                src="/src/assets/colored icons/export (1).png" 
+                                                src="/export (1).png" 
                                                 alt="Export Data" 
                                                 style={{ width: '40px', height: '40px' }}
                                             />
@@ -621,7 +484,7 @@ const Dashboard: React.FC = () => {
                                             }}
                                         >
                                             <img 
-                                                src="/src/assets/colored icons/import.png" 
+                                                src="/import.png" 
                                                 alt="Import Transactions" 
                                                 style={{ width: '40px', height: '40px' }}
                                             />
@@ -647,7 +510,7 @@ const Dashboard: React.FC = () => {
                                                 }}
                                             >
                                                 <img 
-                                                    src="/src/assets/colored icons/report.png" 
+                                                    src="/report.png" 
                                                     alt="Monthly Report" 
                                                     style={{ width: '40px', height: '40px' }}
                                                 />
@@ -655,6 +518,27 @@ const Dashboard: React.FC = () => {
                                             </Button>
                                         </span>
                                     </Tooltip>
+                                    <Button
+                                        variant="contained"
+                                        onClick={() => setOpenBudgetDialog(true)}
+                                        color="primary"
+                                        sx={{ 
+                                            aspectRatio: '3/2',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontSize: '0.875rem',
+                                            gap: 0.5
+                                        }}
+                                    >
+                                        <img 
+                                            src="/budget (1).png" 
+                                            alt="Budget" 
+                                            style={{ width: '40px', height: '40px' }}
+                                        />
+                                        Budget
+                                    </Button>
                                 </Box>
                                 {uploadError && <Typography color="error" sx={{ mt: 2 }}>{uploadError}</Typography>}
                                 <input
@@ -666,123 +550,40 @@ const Dashboard: React.FC = () => {
                                 />
                             </Paper>
                         </Box>
-                        {/* 2x2 Grid for Charts */}
-                        <Box 
-                            ref={chartsRef}
-                            sx={{ 
-                                display: 'grid', 
-                                gridTemplateColumns: 'repeat(2, 1fr)', 
-                                gap: 3,
-                                scrollMarginTop: '80px' // Account for sticky nav height
-                            }}
-                        >
-                            {/* Monthly Overview Chart (Income/Expenses/Savings) */}
-                            <TriColorChart 
-                                selectedMonth={selectedMonth}
-                                selectedYear={selectedYear}
-                                refreshTrigger={refreshTrigger}
-                            />
-
-                            {/* Monthly Expenses Chart */}
-                            <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '400px' }}>
-                                <Box sx={{ mb: 2 }}>
-                                    <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        Monthly Expenses
-                                    </Typography>
-                                </Box>
-                                <Box sx={{ display: 'flex', height: 'calc(100% - 60px)' }}>
-                                    <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', maxHeight: '100%' }}>
-                                        <Box sx={{ width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                            <Doughnut 
-                                                data={chartData}
-                                                options={{
-                                                    ...chartOptions,
-                                                    maintainAspectRatio: false
-                                                }}
-                                            />
-                                        </Box>
-                                    </Box>
-                                    <Box sx={{ flex: 1, p: 2, overflowY: 'auto' }}>
-                                        <Typography variant="h5">Total: ₹{totals?.overall_total.toFixed(2) || '0.00'}</Typography>
-                                        {totals && Object.entries(totals.category_breakdown)
-                                            .sort((a, b) => b[1] - a[1])
-                                            .map(([category, amount]) => (
-                                                <Box key={category} sx={{ mt: 1 }}>
-                                                    <Typography>
-                                                        {category}: ₹{amount.toFixed(2)}
-                                                    </Typography>
-                                                </Box>
-                                            ))}
-                                    </Box>
-                                </Box>
-                            </Paper>
-
-                            {/* Budget Comparison Chart */}
-                            <BudgetComparison 
-                                selectedMonth={selectedMonth}
-                                selectedYear={selectedYear}
-                                refreshTrigger={refreshTrigger}
-                            />
-
-
-                            {/* Daily Expense Variation Chart */}
-                            <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '400px' }}>
-                                <Box sx={{ mb: 2 }}>
-                                    <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        Daily Expense Variation
-                                    </Typography>
-                                </Box>
-                                {lineGraphLoading ? (
-                                    <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <Typography>Loading daily expenses...</Typography>
-                                    </Box>
-                                ) : lineGraphError ? (
-                                    <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <Typography color="error">{lineGraphError}</Typography>
-                                    </Box>
-                                ) : dailyExpenses.length === 0 ? (
-                                    <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <Typography color="text.secondary">
-                                            No expenses recorded for {months[selectedMonth - 1]} {selectedYear}
-                                        </Typography>
-                                    </Box>
-                                ) : (
-                                    <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <Line data={lineChartData} options={lineChartOptions} />
-                                    </Box>
-                                )}
-                            </Paper>
-                        </Box>
-
-
-                        {/* Expense List - Full Width */}
-                        <Paper ref={expensesRef} sx={{ p: 2, scrollMarginTop: '80px' }}>
-                            <Box sx={{ height: '100%' }}>
-                                <MonthlyTransactionList
-                                    expenses={expenses}
-                                    incomes={incomes}
-                                    savings={savings}
-                                    onSelectRecord={setSelectedRecord}
-                                    selectedRecord={selectedRecord}
-                                    onDeleteClick={handleDeleteClick}
-                                />
-                            </Box>
-                        </Paper>
+                        {/* Monthly Data Panel */}
+                        <MonthlyDataPanel
+                            selectedMonth={selectedMonth}
+                            selectedYear={selectedYear}
+                            onMonthChange={setSelectedMonth}
+                            onYearChange={setSelectedYear}
+                            availableMonths={availableMonths}
+                            availableYears={availableYears}
+                            refreshTrigger={refreshTrigger}
+                            totals={totals}
+                            dailyExpenses={dailyExpenses}
+                            lineGraphLoading={lineGraphLoading}
+                            lineGraphError={lineGraphError}
+                            expenses={expenses}
+                            incomes={incomes}
+                            savings={savings}
+                            selectedRecord={selectedRecord}
+                            onSelectRecord={setSelectedRecord}
+                            onDeleteClick={handleDeleteClick}
+                            chartsRef={chartsRef}
+                            expensesRef={expensesRef}
+                        />
 
                         {/* Subscriptions Panel - Full Width */}
                         <Box ref={subscriptionsRef} sx={{ width: '100%', scrollMarginTop: '80px' }}>
-                            <SubscriptionsPanel ref={subscriptionsPanelRef} />
+                            <SubscriptionsPanel 
+                                ref={subscriptionsPanelRef} 
+                                onPaymentSuccess={refreshAllData}
+                            />
                         </Box>
 
                         {/* Saving Goals Panel - Full Width */}
                         <Box ref={savingGoalsRef} sx={{ width: '100%', scrollMarginTop: '80px' }}>
-                            <SavingGoalsPanel onDataChange={async () => {
-                                await Promise.all([
-                                    fetchData(),
-                                    fetchDailyExpenses()
-                                ]);
-                                setRefreshTrigger(prev => prev + 1);
-                            }} />
+                            <SavingGoalsPanel onDataChange={refreshAllData} />
                         </Box>
                     </Box>
 
@@ -840,7 +641,7 @@ const Dashboard: React.FC = () => {
                         initialData={initialSubscriptionData}
                     />
 
-                    <Box
+                    {/* <Box
                         sx={{
                             mt: 4,
                             bgcolor: '#D9D9D9',
@@ -854,7 +655,7 @@ const Dashboard: React.FC = () => {
                         }}
                     >
                         Created By Naman Jain
-                    </Box>
+                    </Box> */}
                 </Container>
             </ThemeProvider>
         </ThemeContext.Provider>

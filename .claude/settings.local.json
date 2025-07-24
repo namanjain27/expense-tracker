@@ -4,7 +4,9 @@
       "Bash(npm run build:*)",
       "Bash(sqlite3:*)",
       "Bash(python:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(mkdir:*)",
+      "Bash(cp:*)"
     ],
     "deny": []
   }

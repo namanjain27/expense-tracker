@@ -137,11 +137,11 @@ const MonthlyTransactionList: React.FC<MonthlyTransactionListProps> = ({
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <img 
-                        src="/src/assets/colored icons/transactions.png" 
+                        src="transactions.png" 
                         alt="Monthly Transactions" 
                         style={{ width: '50px', height: '50px' }}
                     />
-                    Monthly Transactions
+                    Monthly TransX
                 </Typography>
                 <TextField
                     label="Search name or amount of transaction"
