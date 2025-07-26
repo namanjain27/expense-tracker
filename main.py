@@ -75,6 +75,7 @@ atexit.register(lambda: scheduler.shutdown())
 
 origins = [
     "http://localhost:5173",
+    "http://localhost:4173",
     "https://expense-tracker-frontend-nfhv.onrender.com",
     os.getenv("FRONTEND_URL")
 ]

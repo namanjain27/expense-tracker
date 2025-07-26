@@ -23,6 +23,9 @@ const AddSavingGoalDialog: React.FC<AddSavingGoalDialogProps> = ({ open, onClose
             target_amount: parseFloat(targetAmount),
             target_date: targetDate,
             saved_amount: parseFloat(savedAmount) || 0,
+            status: 'active' as const,
+            is_completed: false,
+            redeemed_at: null
         };
 
         if (newGoal.name && !isNaN(newGoal.target_amount) && newGoal.target_date && !dateError && !savedAmountError && !targetAmountError) {
