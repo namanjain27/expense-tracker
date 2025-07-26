@@ -24,10 +24,23 @@ interface Account {
 
 interface BalanceComponentProps {
     refreshTrigger: number;
+    sharedPanelStyle?: any;
 }
 
-const BalanceComponent: React.FC<BalanceComponentProps> = ({ refreshTrigger }) => {
+const BalanceComponent: React.FC<BalanceComponentProps> = ({ refreshTrigger, sharedPanelStyle }) => {
     const { isDarkMode } = useContext(ThemeContext);
+    
+    // Create default panel style if sharedPanelStyle is not provided
+    const defaultPanelStyle = {
+        p: 3,
+        borderRadius: 4,
+        background: isDarkMode 
+            ? 'linear-gradient(135deg, #2c2c2c 0%, #1a1a1a 100%)'
+            : 'linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%)',
+        border: `2px solid ${isDarkMode ? '#444444' : '#cccccc'}`
+    };
+    
+    const panelStyle = sharedPanelStyle || defaultPanelStyle;
     const [account, setAccount] = useState<Account | null>(null);
     const [balanceData, setBalanceData] = useState<AccountBalance | null>(null);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -102,14 +115,10 @@ const BalanceComponent: React.FC<BalanceComponentProps> = ({ refreshTrigger }) =
             <Paper
                 elevation={3}
                 sx={{
-                    p: 3,
-                    borderRadius: 4,
-                    background: isDarkMode 
-                        ? 'linear-gradient(135deg, #2c2c2c 0%, #1a1a1a 100%)'
-                        : 'linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%)',
-                    border: `2px solid ${isDarkMode ? '#444444' : '#cccccc'}`,
+                    ...panelStyle,
                     minWidth: 280,
-                    textAlign: 'center'
+                    textAlign: 'center',
+                    height: 'fit-content'
                 }}
             >
                 <Typography 
@@ -139,16 +148,12 @@ const BalanceComponent: React.FC<BalanceComponentProps> = ({ refreshTrigger }) =
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
                 sx={{
-                    p: 3,
-                    borderRadius: 4,
-                    background: isDarkMode 
-                        ? 'linear-gradient(135deg, #2c2c2c 0%, #1a1a1a 100%)'
-                        : 'linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%)',
-                    border: `2px solid ${isDarkMode ? '#444444' : '#cccccc'}`,
+                    ...panelStyle,
                     minWidth: 280,
                     position: 'relative',
                     cursor: 'pointer',
                     transition: 'all 0.3s ease',
+                    height: 'fit-content',
                     '&:hover': {
                         transform: 'translateY(-2px)',
                         boxShadow: isDarkMode 
