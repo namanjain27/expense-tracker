@@ -1,7 +1,10 @@
 # TrackX - a personal financial analysis app 
 
 ## Tech Stack
-This expense tracker app uses python (FastAPI and SQLite) backend, React (Vite, written in typescript) frontend and SQLite as Database. 
+This expense tracker app uses python (FastAPI and SQLite) backend, React (Vite, written in typescript) frontend and SQLite as Database.
+
+## Dashboard Screenshot
+![Dashboard Screenshot](expense-tracker-frontend/src/assets/screencapture-localhost-5173-dashboard-2025-07-26-15_32_40.png)
 
 ## File Structure
 1. all the backend files exist in the same directory
