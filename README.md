@@ -25,7 +25,8 @@ This expense tracker app uses python (FastAPI and SQLite) backend, React (Vite, 
 9. Switch the UI to light and dark theme
 10. Import and extract data from bank statements
 11. Monthly report automated mail with analysis and chart visuals
-12. Saving Goals to help you fly to your favourite foreign trip 
+12. Saving Goals to help you fly to your favourite foreign trip
+13. View Balance amount as real (eventual) and apparent (currently in account) 
 
 ## Visualisation Charts
 1. category-based expense pie-chart
