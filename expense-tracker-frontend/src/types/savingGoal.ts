@@ -7,7 +7,7 @@ export interface SavingGoal {
     status: 'active' | 'completed' | 'redeemed';
     is_completed: boolean;
     redeemed_at: string | null;
-    created_at: string;
+    created_at?: string;
 }
 
 export type SavingGoalCreate = Omit<SavingGoal, 'id' | 'status' | 'is_completed' | 'redeemed_at' | 'created_at'>;

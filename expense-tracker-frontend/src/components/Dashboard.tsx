@@ -42,6 +42,30 @@ interface TransactionSummaryData {
 
 const Dashboard: React.FC = () => {
     const [isDarkMode, setIsDarkMode] = useState(true);
+    
+    // Shared panel style for consistency
+    const sharedPanelStyle = {
+        p: 3,
+        borderRadius: 4,
+        background: isDarkMode 
+            ? 'linear-gradient(135deg, #2c2c2c 0%, #1a1a1a 100%)'
+            : 'linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%)',
+        border: `2px solid ${isDarkMode ? '#444444' : '#cccccc'}`
+    };
+    
+    // Shared button style for action panel
+    const actionButtonStyle = {
+        aspectRatio: '1',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '0.75rem',
+        gap: 0.5,
+        width: '100%',
+        height: '100%',
+        minHeight: '80px'
+    };
     const [expenses, setExpenses] = useState<Expense[]>([]);
     const [incomes, setIncomes] = useState<Income[]>([]);
     const [savings, setSavings] = useState<Saving[]>([]);
@@ -399,20 +423,16 @@ const Dashboard: React.FC = () => {
                         {/* Balance and Actions Section */}
                         <Box sx={{ display: 'flex', gap: 3, alignItems: 'flex-start' }}>
                             {/* Balance Component */}
-                            <BalanceComponent refreshTrigger={refreshTrigger} />
+                            <BalanceComponent refreshTrigger={refreshTrigger} sharedPanelStyle={sharedPanelStyle} />
                             
                             {/* Actions Panel */}
                             <Paper 
                                 ref={actionsRef} 
                                 sx={{ 
-                                    p: 3, 
+                                    ...sharedPanelStyle,
                                     scrollMarginTop: '80px',
                                     flex: 1,
-                                    borderRadius: 4,
-                                    background: isDarkMode 
-                                        ? 'linear-gradient(135deg, #2c2c2c 0%, #1a1a1a 100%)'
-                                        : 'linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%)',
-                                    border: `2px solid ${isDarkMode ? '#444444' : '#cccccc'}`
+                                    height: 'fit-content'
                                 }}
                             >
                                 <Typography variant="h6" sx={{ mb: 2, color: isDarkMode ? '#ffffff' : '#333333', display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -427,15 +447,7 @@ const Dashboard: React.FC = () => {
                                     <Button
                                         variant="contained"
                                         onClick={() => setIsAddDialogOpen(true)}
-                                        sx={{ 
-                                            aspectRatio: '3/2',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            fontSize: '0.875rem',
-                                            gap: 0.5
-                                        }}
+                                        sx={actionButtonStyle}
                                     >
                                         <img 
                                             src="/Add record.png" 
@@ -449,15 +461,7 @@ const Dashboard: React.FC = () => {
                                             variant="contained"
                                             onClick={handleExportExpenses}
                                             color="secondary"
-                                            sx={{ 
-                                                aspectRatio: '3/2',
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                fontSize: '0.875rem',
-                                                gap: 0.5
-                                            }}
+                                            sx={actionButtonStyle}
                                         >
                                             <img 
                                                 src="/export (1).png" 
@@ -473,15 +477,7 @@ const Dashboard: React.FC = () => {
                                             onClick={() => fileInputRef.current?.click()}
                                             disabled={uploading}
                                             color="info"
-                                            sx={{ 
-                                                aspectRatio: '3/2',
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                fontSize: '0.875rem',
-                                                gap: 0.5
-                                            }}
+                                            sx={actionButtonStyle}
                                         >
                                             <img 
                                                 src="/import.png" 
@@ -498,16 +494,7 @@ const Dashboard: React.FC = () => {
                                                 onClick={handleShowMonthlyReport}
                                                 disabled={reportLoading || (totals?.overall_total === 0)}
                                                 color="success"
-                                                sx={{ 
-                                                    aspectRatio: '3/2',
-                                                    display: 'flex',
-                                                    flexDirection: 'column',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    fontSize: '0.875rem',
-                                                    width: '100%',
-                                                    gap: 0.5
-                                                }}
+                                                sx={actionButtonStyle}
                                             >
                                                 <img 
                                                     src="/report.png" 
@@ -522,15 +509,7 @@ const Dashboard: React.FC = () => {
                                         variant="contained"
                                         onClick={() => setOpenBudgetDialog(true)}
                                         color="primary"
-                                        sx={{ 
-                                            aspectRatio: '3/2',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            fontSize: '0.875rem',
-                                            gap: 0.5
-                                        }}
+                                        sx={actionButtonStyle}
                                     >
                                         <img 
                                             src="/budget (1).png" 

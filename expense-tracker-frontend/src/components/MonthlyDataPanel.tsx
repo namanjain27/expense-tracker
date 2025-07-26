@@ -12,7 +12,7 @@ import { ThemeContext } from './Dashboard';
 import { TotalExpenses } from '../types/expense';
 import { Expense, Income, Saving, RecordType } from '../types/records';
 import { DailyExpense } from '../services/api';
-import Charts from './charts';
+import Charts from './Charts';
 import MonthlyTransactionList from './ExpenseList';
 
 interface MonthlyDataPanelProps {

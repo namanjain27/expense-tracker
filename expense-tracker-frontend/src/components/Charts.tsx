@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { Box, Paper, Typography } from '@mui/material';
 import { Doughnut, Line } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip as ChartTooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, Title } from 'chart.js';
@@ -6,6 +6,7 @@ import { TotalExpenses } from '../types/expense';
 import { DailyExpense } from '../services/api';
 import TriColorChart from './TriColorChart';
 import BudgetComparison from './BudgetComparison';
+import { ThemeContext } from './Dashboard';
 
 ChartJS.register(ArcElement, ChartTooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, Title);
 
@@ -28,6 +29,7 @@ const Charts: React.FC<ChartsProps> = ({
     lineGraphLoading,
     lineGraphError
 }) => {
+    const { isDarkMode } = useContext(ThemeContext);
     const months = [
         'January', 'February', 'March', 'April', 'May', 'June',
         'July', 'August', 'September', 'October', 'November', 'December'
@@ -167,7 +169,25 @@ const Charts: React.FC<ChartsProps> = ({
                             />
                         </Box>
                     </Box>
-                    <Box sx={{ flex: 1, p: 2, overflowY: 'auto' }}>
+                    <Box sx={{ 
+                        flex: 1, 
+                        p: 2, 
+                        overflowY: 'auto',
+                        '&::-webkit-scrollbar': {
+                            width: '8px',
+                        },
+                        '&::-webkit-scrollbar-track': {
+                            background: isDarkMode ? '#2d2d2d' : '#f1f1f1',
+                            borderRadius: '4px',
+                        },
+                        '&::-webkit-scrollbar-thumb': {
+                            background: isDarkMode ? '#555' : '#888',
+                            borderRadius: '4px',
+                            '&:hover': {
+                                background: isDarkMode ? '#666' : '#555',
+                            },
+                        },
+                    }}>
                         <Typography variant="h5">Total: ₹{totals?.overall_total.toFixed(2) || '0.00'}</Typography>
                         {totals && Object.entries(totals.category_breakdown)
                             .sort((a, b) => b[1] - a[1])
