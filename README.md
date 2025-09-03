@@ -1,7 +1,10 @@
-# TrackX - a personal financial analysis app 
+<img width="970" height="517" alt="image" src="https://github.com/user-attachments/assets/bd10d45e-10d7-43e6-a6b6-6507c990252c" /># TrackX - a personal financial analysis app 
 
 ## Tech Stack
 This expense tracker app uses python (FastAPI and SQLite) backend, React (Vite, written in typescript) frontend and SQLite as Database.
+
+## Demo Video
+[![Watch Demo video](expense-tracker-frontend/src/assets/Screenshot 2025-09-03 194713.png)(https://www.loom.com/share/25dc8bb99a7d4a089f0f2bdad4b1a72d?sid=5bec3327-4928-4d27-a9e6-f460e036feeb)]
 
 ## Dashboard Screenshot
 ![Dashboard Screenshot](expense-tracker-frontend/src/assets/screencapture-localhost-5173-dashboard-2025-07-26-15_32_40.png)
